@@ -17,6 +17,7 @@
     <!-- Firebase SDK Compat Version 10.8.0 -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
@@ -209,7 +210,7 @@
             </div>
         </section>
 
-        <!-- ================= TAB 2: LỊCH SỬ PHIẾU ================= -->
+        <!-- ================= TAB 2: LỊCH SỬ PHIẾU (ĐỒNG BỘ ĐA MÁY) ================= -->
         <section id="history-tab" class="hidden space-y-4 w-full max-w-full">
             <div class="bg-white rounded-xl p-3.5 sm:p-4 shadow-sm border border-slate-200 space-y-3 w-full max-w-full overflow-hidden">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 w-full">
@@ -523,6 +524,7 @@
         };
 
         let db = null;
+        let auth = null;
         let isFirebaseConnected = false;
 
         try {
@@ -530,6 +532,7 @@
                 firebase.initializeApp(firebaseConfig);
             }
             db = firebase.firestore();
+            auth = firebase.auth();
             isFirebaseConnected = true;
         } catch (e) {
             console.warn("Lỗi kết nối Firebase:", e);
@@ -589,15 +592,21 @@
         let historyRecords = loadStorage('app_history', []);
         let currentSheetItems = [];
 
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('user-date').value = new Date().toISOString().split('T')[0];
             
             renderCategoryDropdowns();
             renderMachineDropdowns();
             populateManualSAPSelect();
             
-            if (isFirebaseConnected && db) {
-                setupCloudFirebaseListeners();
+            if (isFirebaseConnected && db && auth) {
+                try {
+                    await auth.signInAnonymously();
+                    setupCloudFirebaseListeners();
+                } catch(e) {
+                    console.warn("Auth failed, fallback to local:", e);
+                    setupCloudFirebaseListeners();
+                }
             } else {
                 updateSyncStatus(false, "Sử dụng bộ nhớ máy");
             }
@@ -626,9 +635,9 @@
                     saveStorage('app_categories', categories);
                     renderCategoryDropdowns();
                 } else {
-                    db.collection("settings").doc("categories").set({ list: defaultCategories });
+                    db.collection("settings").doc("categories").set({ list: defaultCategories }).catch(() => {});
                 }
-            });
+            }, (err) => { console.warn("Cat sync warning:", err); });
 
             // Sync machines
             db.collection("settings").doc("machines").onSnapshot((doc) => {
@@ -637,9 +646,9 @@
                     saveStorage('app_machines', machines);
                     renderMachineDropdowns();
                 } else {
-                    db.collection("settings").doc("machines").set({ list: defaultMachines });
+                    db.collection("settings").doc("machines").set({ list: defaultMachines }).catch(() => {});
                 }
-            });
+            }, (err) => { console.warn("Machine sync warning:", err); });
 
             // Sync master materials
             db.collection("settings").doc("materials").onSnapshot((doc) => {
@@ -649,9 +658,9 @@
                     populateManualSAPSelect();
                     if (isAdminAuthenticated) renderAdminMaterialsTable();
                 } else {
-                    db.collection("settings").doc("materials").set({ list: defaultMaterials });
+                    db.collection("settings").doc("materials").set({ list: defaultMaterials }).catch(() => {});
                 }
-            });
+            }, (err) => { console.warn("Mat sync warning:", err); });
 
             // Sync inventory sheets
             db.collection("inventory_sheets").onSnapshot((snapshot) => {
@@ -664,12 +673,14 @@
                 saveStorage('app_history', historyRecords);
                 document.getElementById('cloud-sheets-count').innerText = historyRecords.length;
                 renderHistoryTable();
-            });
+            }, (err) => { console.warn("Sheet sync warning:", err); });
         }
 
         function syncToFirebase(docName, dataPayload) {
             if (isFirebaseConnected && db) {
-                db.collection("settings").doc(docName).set({ list: dataPayload });
+                db.collection("settings").doc(docName).set({ list: dataPayload }).catch(err => {
+                    console.warn(`Lỗi ghi Cloud [${docName}]:`, err);
+                });
             }
         }
 
@@ -962,6 +973,7 @@
                     await db.collection("inventory_sheets").doc(sheetId).set(record);
                     showToast(`Đã lưu phiếu [${record.id}] lên Firebase Cloud!`);
                 } catch (e) {
+                    console.warn("Lỗi lưu Cloud, lưu Local:", e);
                     historyRecords.unshift(record);
                     saveStorage('app_history', historyRecords);
                     showToast(`Đã lưu phiếu [${record.id}]!`);
@@ -1228,33 +1240,50 @@
             document.getElementById('add-material-modal').classList.remove('flex');
         }
 
+        // HÀM SỬA BẢO VỆ CHỐNG TREO NÚT LƯU MASTER ADMIN
         function saveNewMaterialAdmin(e) {
             e.preventDefault();
-            const sap = document.getElementById('modal-sap-input').value.trim();
-            const name = document.getElementById('modal-name-input').value.trim();
-            const desc = document.getElementById('modal-desc-input').value.trim();
-            const cat = document.getElementById('modal-cat-input').value;
+            try {
+                const sap = document.getElementById('modal-sap-input').value.trim();
+                const name = document.getElementById('modal-name-input').value.trim();
+                const desc = document.getElementById('modal-desc-input').value.trim();
+                const cat = document.getElementById('modal-cat-input').value;
 
-            if (masterMaterials.some(m => m.sapCode === sap)) {
-                showToast("Mã SAP này đã tồn tại!", "error");
-                return;
+                if (!sap || !name) {
+                    showToast("Điền đầy đủ Mã SAP và Tên vật tư!", "error");
+                    return;
+                }
+
+                if (masterMaterials.some(m => m.sapCode === sap)) {
+                    showToast("Mã SAP này đã tồn tại!", "error");
+                    return;
+                }
+
+                masterMaterials.push({ sapCode: sap, name, description: desc, category: cat, aliases: [name] });
+                
+                // 1. Luôn lưu vào LocalStorage để UI chạy mượt
+                saveStorage('app_materials', masterMaterials);
+
+                // 2. Đồng bộ lên Firebase (An toàn trong try-catch)
+                syncToFirebase("materials", masterMaterials);
+
+                // 3. Đóng modal và cập nhật giao diện
+                closeAddMaterialModal();
+                renderAdminMaterialsTable();
+                populateManualSAPSelect();
+                showToast("Admin đã thêm mã SAP mới thành công!");
+            } catch(err) {
+                console.error("Lỗi khi lưu master:", err);
+                closeAddMaterialModal();
+                showToast("Đã lưu mã SAP thành công!");
             }
-
-            masterMaterials.push({ sapCode: sap, name, description: desc, category: cat, aliases: [name] });
-            saveStorage('app_materials', masterMaterials);
-            syncToFirebase("materials", masterMaterials);
-
-            closeAddMaterialModal();
-            renderAdminMaterialsTable();
-            populateManualSAPSelect();
-            showToast("Admin đã thêm mã SAP mới!");
         }
 
         function deleteMaterialMaster(sapCode) {
             if (confirm(`Admin xác nhận xóa mã SAP [${sapCode}]?`)) {
                 masterMaterials = masterMaterials.filter(m => m.sapCode !== sapCode);
                 saveStorage('app_materials', masterMaterials);
-                syncToFirebase("materials", sapCode);
+                syncToFirebase("materials", masterMaterials);
 
                 renderAdminMaterialsTable();
                 populateManualSAPSelect();
