@@ -211,7 +211,7 @@
             </div>
         </section>
 
-        <!-- ================= TAB 2: LỊCH SỬ PHIẾU (ĐỒNG BỘ ĐA MÁY) ================= -->
+        <!-- ================= TAB 2: LỊCH SỬ PHIẾU (CÓ TÍNH NĂNG SỬA & XÓA CHO ADMIN) ================= -->
         <section id="history-tab" class="hidden space-y-4 w-full max-w-full">
             <div class="bg-white rounded-xl p-3.5 sm:p-4 shadow-sm border border-slate-200 space-y-3 w-full max-w-full overflow-hidden">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 w-full">
@@ -220,7 +220,7 @@
                             <i data-lucide="history" class="w-4 h-4 mr-1.5 text-blue-600 shrink-0"></i>
                             Nhật Ký Kiểm Kê Đã Đồng Bộ
                         </h2>
-                        <p class="text-[11px] text-slate-500">Tất cả các đội kiểm kê trong xưởng tự động hiển thị phiếu tại đây</p>
+                        <p class="text-[11px] text-slate-500">Admin có quyền Sửa/Xóa phiếu nếu công nhân nhập sai</p>
                     </div>
                     <button onclick="exportToExcel()" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-2 rounded-lg flex items-center justify-center space-x-1 shadow">
                         <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
@@ -237,7 +237,7 @@
                                 <th class="p-2">Máy Cắt</th>
                                 <th class="p-2">Người Tạo</th>
                                 <th class="p-2 text-center">SL</th>
-                                <th class="p-2 text-right">Chi Tiết</th>
+                                <th class="p-2 text-right">Thao Tác</th>
                             </tr>
                         </thead>
                         <tbody id="history-tbody" class="divide-y divide-slate-100">
@@ -426,6 +426,51 @@
         </div>
     </div>
 
+    <!-- Modal Admin Sửa Phiếu Kiểm Kê -->
+    <div id="edit-sheet-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-3">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="bg-slate-900 px-3 py-2.5 text-white flex justify-between items-center shrink-0">
+                <h3 id="edit-modal-title" class="font-bold text-xs">Sửa Phiếu Kiểm Kê</h3>
+                <button onclick="closeEditSheetModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+            </div>
+            <div class="p-3.5 space-y-3 overflow-y-auto flex-grow text-xs">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div>
+                        <label class="block font-bold text-slate-600 mb-1">Người Tạo</label>
+                        <input type="text" id="edit-sheet-user" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-bold outline-none">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-600 mb-1">Máy Cắt</label>
+                        <select id="edit-sheet-machine" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-bold outline-none">
+                            <!-- Machine options -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-600 mb-1">Ngày Kiểm Kê</label>
+                        <input type="date" id="edit-sheet-date" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-bold outline-none">
+                    </div>
+                </div>
+
+                <div class="border-t border-slate-200 pt-2">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="font-bold text-slate-700">Danh Sách Vật Tư Trong Phiếu</span>
+                        <button onclick="addMaterialToEditingSheet()" class="text-blue-600 hover:text-blue-800 font-bold flex items-center space-x-1">
+                            <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
+                            <span>Thêm Vật Tư</span>
+                        </button>
+                    </div>
+                    <div id="edit-sheet-items-container" class="space-y-2 max-h-60 overflow-y-auto pr-1">
+                        <!-- Dynamic item rows in editing sheet -->
+                    </div>
+                </div>
+            </div>
+            <div class="p-3 bg-slate-100 border-t border-slate-200 flex justify-end space-x-2 shrink-0">
+                <button onclick="closeEditSheetModal()" class="px-3 py-1.5 border rounded-lg font-bold">Hủy</button>
+                <button onclick="saveEditedSheetAdmin()" class="px-4 py-1.5 bg-blue-600 text-white rounded-lg font-bold shadow">Lưu Cập Nhật</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Đăng Nhập Admin (Pass: admin123) -->
     <div id="admin-auth-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-3">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-xs overflow-hidden">
@@ -540,6 +585,7 @@
         let db = null;
         let auth = null;
         let isFirebaseConnected = false;
+        let toastTimeout = null;
 
         try {
             if (!firebase.apps.length) {
@@ -556,6 +602,9 @@
         let html5QrCodeScanner = null;
         let currentScannedMaterial = null;
         let pendingUnmappedQRText = "";
+
+        let editingSheetId = null;
+        let editingSheetItems = [];
 
         const defaultCategories = ["NẸP NHỎ", "NẸP LỚN", "CHỈ MAY", "DÂY ĐAI", "KEO DÁN LƯNG"];
         const defaultMachines = ["Máy Cắt 1", "Máy Cắt 2", "Máy Cắt 3", "Máy Cắt 4"];
@@ -600,10 +649,21 @@
             { sapCode: "100000073", description: "Hạt nhựa LDPE trắng", name: "Hạt nhựa LDPE trắng", category: "KEO DÁN LƯNG", aliases: ["HẠT NHỰA LDPE TRẮNG"] }
         ];
 
-        let categories = loadStorageValidArray('app_categories', defaultCategories);
-        let machines = loadStorageValidArray('app_machines', defaultMachines);
-        let masterMaterials = loadStorageValidArray('app_materials', defaultMaterials);
-        let historyRecords = loadStorageValidArray('app_history', []);
+        // LƯU Ý: Dùng loadStorageArray để tôn trọng mảng rỗng hoặc ít item mà Admin đã chủ động xóa
+        function loadStorageArray(key, defaultVal) {
+            try {
+                const data = localStorage.getItem(key);
+                if (data === null) return defaultVal;
+                const parsed = JSON.parse(data);
+                if (Array.isArray(parsed)) return parsed;
+                return defaultVal;
+            } catch (e) { return defaultVal; }
+        }
+
+        let categories = loadStorageArray('app_categories', defaultCategories);
+        let machines = loadStorageArray('app_machines', defaultMachines);
+        let masterMaterials = loadStorageArray('app_materials', defaultMaterials);
+        let historyRecords = loadStorageArray('app_history', []);
         let currentSheetItems = [];
 
         document.addEventListener('DOMContentLoaded', async () => {
@@ -631,51 +691,39 @@
         function saveStorage(key, val) {
             try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
         }
-        
-        function loadStorageValidArray(key, defaultVal) {
-            try {
-                const data = localStorage.getItem(key);
-                if (!data) return defaultVal;
-                const parsed = JSON.parse(data);
-                if (Array.isArray(parsed) && parsed.length > 0) {
-                    return parsed;
-                }
-                return defaultVal;
-            } catch (e) { return defaultVal; }
-        }
 
-        // Tải & Lắng nghe đồng bộ thời gian thực từ CSDL Firebase
+        // Lắng nghe đồng bộ thời gian thực từ CSDL Firebase (Tôn trọng mảng ít item sau khi xóa)
         function setupCloudFirebaseListeners() {
             updateSyncStatus(true, "Firebase Realtime (kiemke-6602e)");
 
             // Sync categories
             db.collection("settings").doc("categories").onSnapshot((doc) => {
-                if (doc.exists && doc.data() && Array.isArray(doc.data().list) && doc.data().list.length > 0) {
+                if (doc.exists && doc.data() && Array.isArray(doc.data().list)) {
                     categories = doc.data().list;
                     saveStorage('app_categories', categories);
                     renderCategoryDropdowns();
-                } else {
+                } else if (!doc.exists) {
                     db.collection("settings").doc("categories").set({ list: defaultCategories }).catch(() => {});
                 }
             }, (err) => { console.warn("Cat sync warning:", err); });
 
             // Sync machines
             db.collection("settings").doc("machines").onSnapshot((doc) => {
-                if (doc.exists && doc.data() && Array.isArray(doc.data().list) && doc.data().list.length > 0) {
+                if (doc.exists && doc.data() && Array.isArray(doc.data().list)) {
                     machines = doc.data().list;
                     saveStorage('app_machines', machines);
                     renderMachineDropdowns();
-                } else {
+                } else if (!doc.exists) {
                     db.collection("settings").doc("machines").set({ list: defaultMachines }).catch(() => {});
                 }
             }, (err) => { console.warn("Machine sync warning:", err); });
 
-            // Sync master materials
+            // Sync master materials - ĐÃ FIX KHÔNG TỰ ĐỘNG NẠP LẠI MÃ CŨ NẾU ADMIN XÓA
             db.collection("settings").doc("materials").onSnapshot((doc) => {
-                if (doc.exists && doc.data() && Array.isArray(doc.data().list) && doc.data().list.length > 0) {
+                if (doc.exists && doc.data() && Array.isArray(doc.data().list)) {
                     masterMaterials = doc.data().list;
                     saveStorage('app_materials', masterMaterials);
-                } else {
+                } else if (!doc.exists) {
                     db.collection("settings").doc("materials").set({ list: defaultMaterials }).catch(() => {});
                     masterMaterials = [...defaultMaterials];
                     saveStorage('app_materials', masterMaterials);
@@ -684,9 +732,6 @@
                 if (isAdminAuthenticated) renderAdminMaterialsTable();
             }, (err) => { 
                 console.warn("Mat sync warning:", err);
-                if (!Array.isArray(masterMaterials) || masterMaterials.length === 0) {
-                    masterMaterials = [...defaultMaterials];
-                }
                 populateManualSAPSelect();
             });
 
@@ -708,10 +753,7 @@
 
         function syncToFirebase(docName, dataPayload) {
             if (isFirebaseConnected && db) {
-                if (!Array.isArray(dataPayload)) {
-                    console.error("Payload gửi lên Firebase phải là 1 MẢNG!", dataPayload);
-                    return;
-                }
+                if (!Array.isArray(dataPayload)) return;
                 db.collection("settings").doc(docName).set({ list: dataPayload }).catch(err => {
                     console.warn(`Lỗi ghi Cloud [${docName}]:`, err);
                 });
@@ -860,7 +902,7 @@
             const normClean = removeDiacritics(cleanText);
             const normCleanNoSpace = normClean.replace(/[^a-z0-9]/g, '');
 
-            if (!Array.isArray(masterMaterials) || masterMaterials.length === 0) {
+            if (!Array.isArray(masterMaterials)) {
                 masterMaterials = [...defaultMaterials];
             }
 
@@ -917,7 +959,6 @@
             }
         }
 
-        // HÀM HIỂN THỊ KHUNG NHẬP SẢN LƯỢNG (AN TOÀN CHỐNG CRASH)
         function displayRecognizedMaterial(mat, qrRawText) {
             if (!mat) return;
             currentScannedMaterial = mat;
@@ -1075,7 +1116,7 @@
             if (isFirebaseConnected && db) {
                 try {
                     await db.collection("inventory_sheets").doc(sheetId).set(record);
-                    showToast(`Đã lưu phiếu [${record.id}] lên Firebase Cloud!`);
+                    showToast(`Đã lưu phiếu [${record.id}] lên Cloud!`);
                 } catch (e) {
                     console.warn("Lỗi lưu Cloud, lưu Local:", e);
                     historyRecords.unshift(record);
@@ -1093,6 +1134,7 @@
             switchTab('history-tab');
         }
 
+        // BẢNG HIỂN THỊ NHẬT KÝ (BỔ SUNG THAO TÁC SỬA/XÓA CHO ADMIN)
         function renderHistoryTable() {
             const tbody = document.getElementById('history-tbody');
             if (!Array.isArray(historyRecords) || historyRecords.length === 0) {
@@ -1108,10 +1150,167 @@
                     <td class="p-2 text-slate-700 font-semibold truncate max-w-[80px]">${r.createdBy}</td>
                     <td class="p-2 text-center font-bold text-slate-800">${r.items ? r.items.length : 0}</td>
                     <td class="p-2 text-right">
-                        <button onclick="viewHistoryDetail('${r.id}')" class="text-blue-600 font-bold text-xs underline">Xem</button>
+                        <div class="flex items-center justify-end space-x-1.5">
+                            <button onclick="viewHistoryDetail('${r.id}')" class="text-blue-600 hover:text-blue-800 font-bold text-xs underline">Xem</button>
+                            <button onclick="openEditSheetModal('${r.id}')" class="text-amber-600 hover:text-amber-800 font-bold text-xs underline">Sửa</button>
+                            <button onclick="deleteSheetRecord('${r.id}')" class="text-red-500 hover:text-red-700 font-bold text-xs underline">Xóa</button>
+                        </div>
                     </td>
                 </tr>
             `).join('');
+        }
+
+        // TÍNH NĂNG ADMIN XÓA PHIẾU
+        async function deleteSheetRecord(sheetId) {
+            if (!isAdminAuthenticated) {
+                openAdminAuthModal();
+                return;
+            }
+            const rec = historyRecords.find(r => r.id === sheetId);
+            if (!rec) return;
+
+            if (confirm(`Admin xác nhận xóa phiếu [${sheetId}] do "${rec.createdBy}" tạo?`)) {
+                historyRecords = historyRecords.filter(r => r.id !== sheetId);
+                saveStorage('app_history', historyRecords);
+
+                if (isFirebaseConnected && db) {
+                    try {
+                        await db.collection("inventory_sheets").doc(sheetId).delete();
+                    } catch(e) { console.warn(e); }
+                }
+
+                renderHistoryTable();
+                showToast(`Đã xóa phiếu [${sheetId}]!`);
+            }
+        }
+
+        // TÍNH NĂNG ADMIN SỬA PHIẾU
+        function openEditSheetModal(sheetId) {
+            if (!isAdminAuthenticated) {
+                openAdminAuthModal();
+                return;
+            }
+            const rec = historyRecords.find(r => r.id === sheetId);
+            if (!rec) return;
+
+            editingSheetId = sheetId;
+            editingSheetItems = JSON.parse(JSON.stringify(rec.items || []));
+
+            document.getElementById('edit-modal-title').innerText = `Sửa Phiếu: ${sheetId}`;
+            document.getElementById('edit-sheet-user').value = rec.createdBy || '';
+            document.getElementById('edit-sheet-date').value = rec.date || new Date().toISOString().split('T')[0];
+
+            const machineSelect = document.getElementById('edit-sheet-machine');
+            if (machineSelect) {
+                machineSelect.innerHTML = machines.map(m => `<option value="${m}" ${m === rec.machine ? 'selected' : ''}>${m}</option>`).join('');
+            }
+
+            renderEditingSheetItems();
+
+            document.getElementById('edit-sheet-modal').classList.remove('hidden');
+            document.getElementById('edit-sheet-modal').classList.add('flex');
+        }
+
+        function renderEditingSheetItems() {
+            const container = document.getElementById('edit-sheet-items-container');
+            if (!container) return;
+
+            if (editingSheetItems.length === 0) {
+                container.innerHTML = `<p class="text-center text-slate-400 italic py-2">Phiếu chưa có vật tư nào.</p>`;
+                return;
+            }
+
+            container.innerHTML = editingSheetItems.map((it, idx) => `
+                <div class="bg-slate-50 border border-slate-200 rounded-lg p-2 space-y-1.5">
+                    <div class="flex justify-between items-center">
+                        <div class="font-bold text-slate-800 text-xs truncate max-w-[200px]">[${it.sapCode}] ${it.name}</div>
+                        <button onclick="removeEditingSheetItem(${idx})" class="text-red-500 hover:text-red-700 p-0.5"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <span class="text-[10px] text-slate-500 font-semibold">Số Lượng</span>
+                            <input type="number" step="0.1" min="0" value="${it.quantity}" onchange="updateEditingSheetItemQty(${idx}, this.value)" class="w-full bg-white border border-slate-300 rounded p-1 text-xs font-bold">
+                        </div>
+                        <div>
+                            <span class="text-[10px] text-slate-500 font-semibold">Số Ống</span>
+                            <input type="number" min="0" value="${it.tubes}" onchange="updateEditingSheetItemTubes(${idx}, this.value)" class="w-full bg-white border border-slate-300 rounded p-1 text-xs font-bold">
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function updateEditingSheetItemQty(idx, val) {
+            if (editingSheetItems[idx]) editingSheetItems[idx].quantity = parseFloat(val) || 0;
+        }
+
+        function updateEditingSheetItemTubes(idx, val) {
+            if (editingSheetItems[idx]) editingSheetItems[idx].tubes = parseInt(val) || 0;
+        }
+
+        function removeEditingSheetItem(idx) {
+            editingSheetItems.splice(idx, 1);
+            renderEditingSheetItems();
+        }
+
+        function addMaterialToEditingSheet() {
+            const sap = prompt("Nhập Mã SAP vật tư cần thêm vào phiếu:");
+            if (!sap) return;
+            const mat = masterMaterials.find(m => m.sapCode === sap.trim() || removeDiacritics(m.name).includes(removeDiacritics(sap)));
+            if (!mat) {
+                showToast(`Không tìm thấy mã SAP [${sap}]`, "error");
+                return;
+            }
+            editingSheetItems.push({
+                sapCode: mat.sapCode,
+                name: mat.name,
+                category: mat.category,
+                quantity: 1,
+                tubes: 1,
+                note: ""
+            });
+            renderEditingSheetItems();
+        }
+
+        async function saveEditedSheetAdmin() {
+            if (!editingSheetId) return;
+
+            const userName = document.getElementById('edit-sheet-user').value.trim();
+            const machine = document.getElementById('edit-sheet-machine').value;
+            const date = document.getElementById('edit-sheet-date').value;
+
+            if (!userName) {
+                showToast("Chưa nhập Tên người tạo!", "error");
+                return;
+            }
+
+            const idx = historyRecords.findIndex(r => r.id === editingSheetId);
+            if (idx !== -1) {
+                historyRecords[idx].createdBy = userName;
+                historyRecords[idx].machine = machine;
+                historyRecords[idx].date = date;
+                historyRecords[idx].items = [...editingSheetItems];
+
+                saveStorage('app_history', historyRecords);
+
+                if (isFirebaseConnected && db) {
+                    try {
+                        await db.collection("inventory_sheets").doc(editingSheetId).set(historyRecords[idx]);
+                    } catch(e) { console.warn(e); }
+                }
+
+                closeEditSheetModal();
+                renderHistoryTable();
+                showToast(`Đã cập nhật phiếu [${editingSheetId}]!`);
+            }
+        }
+
+        function closeEditSheetModal() {
+            document.getElementById('edit-sheet-modal').classList.add('hidden');
+            document.getElementById('edit-sheet-modal').classList.remove('flex');
+            editingSheetId = null;
+            editingSheetItems = [];
         }
 
         function viewHistoryDetail(id) {
@@ -1335,8 +1534,8 @@
             const tbody = document.getElementById('admin-materials-tbody');
             const countBadge = document.getElementById('admin-materials-count');
 
-            if (!Array.isArray(masterMaterials) || masterMaterials.length === 0) {
-                masterMaterials = [...defaultMaterials];
+            if (!Array.isArray(masterMaterials)) {
+                masterMaterials = [];
             }
 
             if (countBadge) countBadge.innerText = masterMaterials.length;
@@ -1351,7 +1550,7 @@
             });
 
             if (filteredList.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400 italic">Không tìm thấy mã SAP phù hợp</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400 italic">Không tìm thấy mã SAP nào</td></tr>`;
                 return;
             }
 
@@ -1392,7 +1591,7 @@
                 }
 
                 if (!Array.isArray(masterMaterials)) {
-                    masterMaterials = [...defaultMaterials];
+                    masterMaterials = [];
                 }
 
                 if (masterMaterials.some(m => m.sapCode === sap)) {
@@ -1422,6 +1621,8 @@
             if (confirm(`Admin xác nhận xóa mã SAP [${sapCode}]?`)) {
                 masterMaterials = masterMaterials.filter(m => m.sapCode !== sapCode);
                 saveStorage('app_materials', masterMaterials);
+                
+                // Gửi mảng danh sách mới lên Firebase Cloud
                 syncToFirebase("materials", masterMaterials);
 
                 renderAdminMaterialsTable();
@@ -1430,13 +1631,18 @@
             }
         }
 
+        // CÀI ĐẶT TOAST TỰ ĐỘNG ẨN SAU 1 GIÂY (1000ms)
         function showToast(msg, type = "success") {
             const toast = document.getElementById('toast');
+            if (!toast) return;
+
             document.getElementById('toast-msg').innerText = msg;
             toast.className = `fixed bottom-4 right-4 text-white px-3.5 py-2 rounded-xl shadow-2xl transition transform translate-y-0 opacity-100 flex items-center space-x-2 z-50 text-xs font-medium max-w-[90vw] ${type === 'error' ? 'bg-red-900 border border-red-700' : 'bg-slate-900'}`;
-            setTimeout(() => {
+            
+            if (toastTimeout) clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
                 toast.classList.add('translate-y-20', 'opacity-0');
-            }, 3000);
+            }, 1000); // 1s notification duration
         }
     </script>
 </body>
