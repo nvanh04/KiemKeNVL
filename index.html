@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Kiểm Kê Nguyên Vật Liệu</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- HTML5 QR Code Scanner Library -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <!-- SheetJS cho xuất file Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col antialiased">
+
+    <!-- Header Navigation Bar -->
+    <header class="bg-slate-900 text-white shadow-md sticky top-0 z-40">
+        <div class="max-w-4xl mx-auto px-4 h-16 flex justify-between items-center">
+            <div class="flex items-center space-x-2.5">
+                <div class="bg-blue-600 p-2 rounded-xl shadow">
+                    <i data-lucide="qr-code" class="w-5 h-5 text-white"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-base leading-tight">KIỂM KÊ VẬT TƯ</h1>
+                    <p class="text-[11px] text-slate-400">Nhà máy sản xuất & cắt cuộn</p>
+                </div>
+            </div>
+
+            <nav class="flex items-center space-x-1 sm:space-x-2">
+                <button onclick="switchTab('user-tab')" id="btn-user-tab" class="px-3 py-1.5 rounded-lg text-xs font-bold transition bg-blue-600 text-white shadow">
+                    Nhập Phiếu
+                </button>
+                <button onclick="switchTab('history-tab')" id="btn-history-tab" class="px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-300 hover:text-white">
+                    Nhật Ký
+                </button>
+                <button onclick="openAdminAuthModal()" id="btn-admin-tab" class="px-3 py-1.5 rounded-lg text-xs font-bold transition text-amber-400 hover:bg-slate-800 border border-amber-500/30 flex items-center space-x-1">
+                    <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+                    <span>Admin</span>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content Body -->
+    <main class="flex-grow max-w-4xl w-full mx-auto px-4 py-5 space-y-4">
+
+        <!-- ================= TAB 1: GIAO DIỆN NHẬP PHIẾU CÔNG NHÂN ================= -->
+        <section id="user-tab" class="space-y-4">
+            
+            <!-- Thông tin người tạo & Máy cắt -->
+            <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-200 space-y-3">
+                <h2 class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center">
+                    <i data-lucide="user" class="w-4 h-4 mr-1.5 text-blue-600"></i>
+                    1. Thông Tin Phiếu Kiểm Kê
+                </h2>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs font-medium">
+                    <div>
+                        <label class="block text-slate-600 mb-1 font-semibold">Tên Người Tạo Phiếu <span class="text-red-500">*</span></label>
+                        <input type="text" id="user-name" placeholder="Ví dụ: Nguyễn Văn A" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-slate-800">
+                    </div>
+                    <div>
+                        <label class="block text-slate-600 mb-1 font-semibold">Chọn Máy Cắt <span class="text-red-500">*</span></label>
+                        <select id="user-machine" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-slate-800">
+                            <!-- Danh sách máy được tải động -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-slate-600 mb-1 font-semibold">Ngày Kiểm Kê</label>
+                        <input type="date" id="user-date" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 outline-none font-semibold text-slate-800">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Nút Quét Mã QR & Chọn Nhanh -->
+            <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200 text-center space-y-4">
+                <div class="space-y-1">
+                    <h3 class="font-bold text-slate-800 text-base">2. Quét Mã QR Tem Vật Tư</h3>
+                    <p class="text-xs text-slate-500">Đưa camera quét tem mã SAP dán trên cuộn nẹp / thùng hàng</p>
+                </div>
+
+                <button onclick="startQRScanner()" class="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3.5 px-8 rounded-xl shadow-lg flex items-center justify-center space-x-2 mx-auto transition transform active:scale-95">
+                    <i data-lucide="camera" class="w-6 h-6"></i>
+                    <span class="text-sm">BẤM VÀO ĐÂY ĐỂ QUÉT MÃ QR</span>
+                </button>
+
+                <!-- Tìm theo mã thủ công nếu không sử dụng camera -->
+                <div class="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-center gap-2">
+                    <span class="text-xs text-slate-500">Hoặc chọn theo Tên/Mã SAP thủ công:</span>
+                    <select id="manual-sap-select" onchange="onManualSAPSelect()" class="w-full sm:w-auto bg-slate-100 border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-semibold max-w-xs">
+                        <!-- Danh sách mã SAP thủ công -->
+                    </select>
+                </div>
+            </div>
+
+            <!-- Kết quả nhận diện sau khi Quét QR thành công -->
+            <div id="scanned-result-card" class="hidden bg-blue-50 border-2 border-blue-400 rounded-xl p-4 space-y-4 shadow-sm">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 text-white uppercase" id="res-category">NẸP LỚN</span>
+                        <h4 class="font-bold text-slate-900 text-base mt-1" id="res-name">Nẹp lớn ghép màng mờ</h4>
+                        <p class="text-xs font-mono text-slate-600 mt-0.5">Mã SAP: <span class="font-bold text-blue-700" id="res-sap">400009293</span> | Mô tả: <span id="res-desc">TR-NL-50-GMM-TRA-0-XK</span></p>
+                    </div>
+                    <span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-2 py-1 rounded flex items-center">
+                        <i data-lucide="check" class="w-3.5 h-3.5 mr-1"></i> Đã nhận diện
+                    </span>
+                </div>
+
+                <!-- Nhập số lượng và số ống -->
+                <div class="grid grid-cols-2 gap-3 pt-2 border-t border-blue-200">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Số Lượng <span class="text-red-500">*</span></label>
+                        <input type="number" step="0.1" min="0" id="input-qty" placeholder="0.0" class="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-base font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Số Ống / Cuộn <span class="text-red-500">*</span></label>
+                        <input type="number" min="0" id="input-tubes" placeholder="0" class="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-base font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Ghi Chú (Nếu có)</label>
+                    <input type="text" id="input-note" placeholder="Nhập ghi chú thêm..." class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs outline-none">
+                </div>
+
+                <div class="flex space-x-2 pt-1">
+                    <button onclick="cancelScanItem()" class="w-1/3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2.5 rounded-lg text-xs">Hủy</button>
+                    <button onclick="addScannedItemToList()" class="w-2/3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg text-xs shadow flex items-center justify-center space-x-1">
+                        <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                        <span>THÊM VÀO PHIẾU</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Bảng danh sách vật tư đã quét trong phiếu -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-3 bg-slate-100 border-b border-slate-200 flex justify-between items-center">
+                    <h3 class="font-bold text-xs uppercase text-slate-700 flex items-center">
+                        <i data-lucide="list-checks" class="w-4 h-4 mr-1.5 text-blue-600"></i>
+                        Danh Sách Vật Tư Đã Quét Trên Phiếu
+                    </h3>
+                    <span id="current-items-count" class="text-xs font-bold bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full">0 vật tư</span>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-50 text-slate-500 font-bold uppercase border-b border-slate-200">
+                            <tr>
+                                <th class="p-2.5">STT</th>
+                                <th class="p-2.5">Mã SAP & Tên Vật Tư</th>
+                                <th class="p-2.5">Danh Mục</th>
+                                <th class="p-2.5">Số Lượng</th>
+                                <th class="p-2.5">Số Ống</th>
+                                <th class="p-2.5 text-center">Xóa</th>
+                            </tr>
+                        </thead>
+                        <tbody id="current-items-tbody" class="divide-y divide-slate-100">
+                            <tr>
+                                <td colspan="6" class="p-4 text-center text-slate-400 italic">Chưa quét vật tư nào. Bấm nút Quét QR để bắt đầu.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="p-3 bg-slate-50 border-t border-slate-200 flex justify-end">
+                    <button onclick="saveFullInventorySheet()" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2.5 rounded-xl text-xs shadow-md flex items-center justify-center space-x-2">
+                        <i data-lucide="save" class="w-4 h-4"></i>
+                        <span>HOÀN TẤT & LƯU PHIẾU KIỂM KÊ</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= TAB 2: LỊCH SỬ PHIẾU ================= -->
+        <section id="history-tab" class="hidden space-y-4">
+            <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-200 space-y-3">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                    <h2 class="font-bold text-slate-800 text-sm flex items-center">
+                        <i data-lucide="history" class="w-4 h-4 mr-1.5 text-blue-600"></i>
+                        Nhật Ký Phiếu Kiểm Kê Đã Lưu
+                    </h2>
+                    <button onclick="exportToExcel()" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-2 rounded-lg flex items-center justify-center space-x-1 shadow">
+                        <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+                        <span>XUẤT FILE EXCEL</span>
+                    </button>
+                </div>
+
+                <div class="overflow-x-auto border border-slate-200 rounded-lg">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-100 font-bold text-slate-700 uppercase">
+                            <tr>
+                                <th class="p-2.5">Mã Phiếu</th>
+                                <th class="p-2.5">Ngày Kiểm</th>
+                                <th class="p-2.5">Máy Cắt</th>
+                                <th class="p-2.5">Người Tạo</th>
+                                <th class="p-2.5 text-center">Số Mặt Hàng</th>
+                                <th class="p-2.5 text-right">Chi Tiết</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-tbody" class="divide-y divide-slate-100">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= TAB 3: TRANG ADMIN QUẢN LÝ MÃ SAP ================= -->
+        <section id="admin-tab" class="hidden space-y-4">
+            <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-200 space-y-3">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h2 class="font-bold text-slate-800 text-sm flex items-center">
+                            <i data-lucide="shield-check" class="w-4 h-4 mr-1.5 text-amber-600"></i>
+                            Quản Lý Mã SAP Master Data (Admin)
+                        </h2>
+                    </div>
+                    <button onclick="openAddMaterialModal()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center space-x-1">
+                        <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                        <span>Thêm Mã SAP</span>
+                    </button>
+                </div>
+
+                <div class="overflow-x-auto border border-slate-200 rounded-lg max-h-[500px]">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-100 font-bold text-slate-700 uppercase sticky top-0">
+                            <tr>
+                                <th class="p-2.5">Mã SAP</th>
+                                <th class="p-2.5">Tên Nẹp / Vật Tư</th>
+                                <th class="p-2.5">Mô Tả</th>
+                                <th class="p-2.5">Danh Mục</th>
+                                <th class="p-2.5 text-center">Xóa</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-materials-tbody" class="divide-y divide-slate-100">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modal Camera Quét QR Code -->
+    <div id="qr-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col">
+            <div class="bg-slate-900 text-white px-4 py-3 flex justify-between items-center">
+                <h3 class="font-bold text-xs flex items-center">
+                    <i data-lucide="scan" class="w-4 h-4 mr-1.5 text-blue-400"></i>
+                    Đưa Mã QR / Barcode Vào Khung
+                </h3>
+                <button onclick="stopQRScanner()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="p-4 bg-slate-950 flex flex-col items-center justify-center min-h-[280px]">
+                <div id="qr-reader" class="w-full rounded-lg overflow-hidden border-2 border-blue-500"></div>
+                <p class="text-[11px] text-slate-400 mt-2 text-center">Hệ thống sẽ tự nhận diện ngay khi đưa tem mã vạch/mã QR lại gần</p>
+            </div>
+            <div class="p-3 bg-slate-100 flex justify-end">
+                <button onclick="stopQRScanner()" class="px-4 py-1.5 bg-slate-600 text-white text-xs font-bold rounded-lg">Đóng Camera</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Xem Chi Tiết Phiếu Kiểm Kê -->
+    <div id="detail-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
+            <div class="bg-slate-900 px-4 py-3 text-white flex justify-between items-center">
+                <h3 id="detail-modal-title" class="font-bold text-xs">Chi Tiết Phiếu</h3>
+                <button onclick="closeDetailModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+            </div>
+            <div class="p-4 space-y-3">
+                <div id="detail-modal-info" class="grid grid-cols-3 gap-2 text-xs font-semibold bg-blue-50 p-2.5 rounded-lg text-blue-900"></div>
+                <div class="overflow-x-auto max-h-60 border border-slate-200 rounded-lg">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-100 font-bold text-slate-700">
+                            <tr>
+                                <th class="p-2 border-b">STT</th>
+                                <th class="p-2 border-b">Mã SAP</th>
+                                <th class="p-2 border-b">Tên Hàng</th>
+                                <th class="p-2 border-b">Số Lượng</th>
+                                <th class="p-2 border-b">Số Ống</th>
+                            </tr>
+                        </thead>
+                        <tbody id="detail-modal-tbody" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Đăng Nhập Admin -->
+    <div id="admin-auth-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-xs overflow-hidden">
+            <div class="bg-slate-900 px-4 py-3 text-white flex justify-between items-center">
+                <h3 class="font-bold text-xs">Xác Thực Quản Trị Viên (Admin)</h3>
+                <button onclick="closeAdminAuthModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+            </div>
+            <form onsubmit="verifyAdminPass(event)" class="p-4 space-y-3">
+                <p class="text-xs text-slate-500">Nhập mật khẩu Admin để truy cập quản lý mã SAP (Mặc định: <b>123456</b>):</p>
+                <input type="password" id="admin-pass-input" placeholder="Mật khẩu Admin" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs font-bold outline-none">
+                <div class="flex justify-end space-x-2 pt-1">
+                    <button type="button" onclick="closeAdminAuthModal()" class="px-3 py-1.5 border rounded-lg text-xs font-bold">Hủy</button>
+                    <button type="submit" class="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold">Mở Khóa</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Thêm Mã SAP Admin -->
+    <div id="add-material-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div class="bg-slate-900 px-4 py-3 text-white flex justify-between items-center">
+                <h3 class="font-bold text-xs">Thêm Mã SAP Master Mới</h3>
+                <button onclick="closeAddMaterialModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+            </div>
+            <form onsubmit="saveNewMaterialAdmin(event)" class="p-4 space-y-3 text-xs">
+                <div>
+                    <label class="block font-bold text-slate-600 mb-1">Mã SAP / Mã QR <span class="text-red-500">*</span></label>
+                    <input type="text" id="modal-sap-input" required placeholder="Ví dụ: 400009293" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-mono outline-none">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-600 mb-1">Tên Nẹp / Vật Tư <span class="text-red-500">*</span></label>
+                    <input type="text" id="modal-name-input" required placeholder="Ví dụ: Nẹp lớn ghép màng mờ" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-medium outline-none">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-600 mb-1">Mô Tả (Description)</label>
+                    <input type="text" id="modal-desc-input" placeholder="Ví dụ: TR-NL-50-GMM-TRA-0-XK" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-mono outline-none">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-600 mb-1">Danh Mục <span class="text-red-500">*</span></label>
+                    <select id="modal-cat-input" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-medium outline-none">
+                        <option value="NẸP NHỎ">NẸP NHỎ</option>
+                        <option value="NẸP LỚN">NẸP LỚN</option>
+                        <option value="CHỈ MAY">CHỈ MAY</option>
+                        <option value="DÂY ĐAI">DÂY ĐAI</option>
+                        <option value="KEO DÁN LƯNG / KHÁC">KEO DÁN LƯNG / KHÁC</option>
+                    </select>
+                </div>
+                <div class="pt-2 flex justify-end space-x-2">
+                    <button type="button" onclick="closeAddMaterialModal()" class="px-3 py-1.5 border rounded-lg font-bold">Hủy</button>
+                    <button type="submit" class="px-4 py-1.5 bg-blue-600 text-white rounded-lg font-bold">Lưu Master Data</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-slate-900 text-white px-4 py-2.5 rounded-xl shadow-2xl transition transform translate-y-20 opacity-0 flex items-center space-x-2 z-50 text-xs font-medium">
+        <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
+        <span id="toast-msg">Thao tác thành công!</span>
+    </div>
+
+    <!-- Script Application Logic -->
+    <script>
+        let isAdminAuthenticated = false;
+        let html5QrCodeScanner = null;
+        let currentScannedMaterial = null;
+
+        let machines = ["Máy Cắt 1", "Máy Cắt 2", "Máy Cắt 3", "Máy Cắt 4"];
+        
+        // Đầy đủ tất cả mã SAP từ tài liệu bảng in của bạn
+        const defaultMaterials = [
+            // NẸP LỚN
+            { sapCode: "400009293", description: "TR-NL-50-GMM-TRA-0-XK", name: "Nẹp lớn ghép màng mờ", category: "NẸP LỚN" },
+            { sapCode: "400009299", description: "TR-NL-50-GMB-CAM-1858C-XK", name: "Nẹp cam lớn 1585", category: "NẸP LỚN" },
+            { sapCode: "400009302", description: "TR-NL-50-GMB-XDU-293C-XK", name: "Nẹp xanh dương lớn 293", category: "NẸP LỚN" },
+            { sapCode: "400009297", description: "TR-NL-50-GMB-XLA-357C-XK", name: "Nẹp xanh lá lớn 357", category: "NẸP LỚN" },
+            { sapCode: "400009290", description: "TR-NL-50-GMB-XDU-2175C-XK", name: "Nẹp xanh dương lớn 2175", category: "NẸP LỚN" },
+            { sapCode: "400073204", description: "TR-NL-50-TR.1M-TRA-0-XK", name: "Nẹp lớn tráng bóng 5p", category: "NẸP LỚN" },
+            { sapCode: "400009303", description: "TR-NL-60-TR.1M-TRA-0-ND", name: "Nẹp Trung Đô lớn trắng", category: "NẸP LỚN" },
+            { sapCode: "400009294", description: "TR-NL-50-GMB-DEN-0-XK", name: "Nẹp đen lớn", category: "NẸP LỚN" },
+            { sapCode: "400009295", description: "TR-NL-50-GMB-DO-0-XK", name: "NẸP ĐỎ BÓNG LỚN", category: "NẸP LỚN" },
+            { sapCode: "400009301", description: "TR-NL-50-GMM-XDU-314C-XK", name: "Nẹp lớn xanh 314", category: "NẸP LỚN" },
+            { sapCode: "400009292", description: "TR-NL-50-GMB-TRA-0-XK", name: "Nẹp lớn ghép màng bóng trắng", category: "NẸP LỚN" },
+
+            // NẸP NHỎ
+            { sapCode: "400009042", description: "N12-6800-GMB-DEN", name: "Nẹp đen nhỏ", category: "NẸP NHỎ" },
+            { sapCode: "400009037", description: "N12-6800-GMB-XDU-2154C", name: "Nẹp nhỏ xanh dương 2154", category: "NẸP NHỎ" },
+            { sapCode: "400009034", description: "N12-6800-GMM-XDU-314C", name: "Nẹp nhỏ xanh dương 314C", category: "NẸP NHỎ" },
+            { sapCode: "400009039", description: "N12-6800-GMM-TRA", name: "Nẹp nhỏ trắng mờ", category: "NẸP NHỎ" },
+            { sapCode: "400009033", description: "N12-6800-GMB-XLA-357C", name: "Nẹp nhỏ xanh lá 357C", category: "NẸP NHỎ" },
+            { sapCode: "400009044", description: "N12-6800-GMB-VAN-123C", name: "Nẹp vàng nhỏ", category: "NẸP NHỎ" },
+            { sapCode: "400009040", description: "N12-6800-GMB-TRA", name: "Nẹp nhỏ trắng bóng", category: "NẸP NHỎ" },
+            { sapCode: "400009036", description: "N12-6800-GMB-XDU-2175C", name: "Nẹp xanh dương nhỏ 2175", category: "NẸP NHỎ" },
+            { sapCode: "400071785", description: "N12-6800-GMB-TIM-3583C", name: "Nẹp nhỏ tím 3853", category: "NẸP NHỎ" },
+            { sapCode: "400071786", description: "N12-6800-GMB-XDU-CYAN", name: "Nẹp nhỏ CYAN", category: "NẸP NHỎ" },
+            { sapCode: "400071787", description: "N12-6800-TRB-TRA", name: "Nẹp nhỏ tráng 1 mặt", category: "NẸP NHỎ" },
+            { sapCode: "400009035", description: "N12-6800-GMB-DO", name: "Nẹp nhỏ đỏ C", category: "NẸP NHỎ" },
+
+            // DÂY ĐAI
+            { sapCode: "200000023", description: "Dây đai đóng kiện Nhiệt chung bản 12ly", name: "Dây đai", category: "DÂY ĐAI" },
+
+            // CHỈ MAY
+            { sapCode: "110000009", description: "Chỉ may-cotton-8 sợi-7T 1XD-SO", name: "Chỉ coton 7 trắng 1 xanh", category: "CHỈ MAY" },
+            { sapCode: "110000010", description: "Chỉ may-cotton-8 sợi-Đỏ-SO", name: "Chỉ coton đỏ", category: "CHỈ MAY" },
+            { sapCode: "40000955", description: "KS-C-0-900-D0", name: "Chỉ trắng 900D", category: "CHỈ MAY" },
+            { sapCode: "40000952", description: "KS-C-0-900-VA50", name: "Chỉ vàng", category: "CHỈ MAY" },
+            { sapCode: "110000001", description: "Chỉ may-cotton-9 sợi-T", name: "Chỉ coton trắng", category: "CHỈ MAY" },
+            { sapCode: "40000950", description: "KS-C-0-900-XD35", name: "Chỉ PP xanh dương", category: "CHỈ MAY" },
+            { sapCode: "40000948", description: "KS-C-0-900-TI04", name: "Chỉ tím", category: "CHỈ MAY" },
+            { sapCode: "40000953", description: "KS-C-0-900-XL33", name: "Chỉ xanh lá", category: "CHỈ MAY" },
+            { sapCode: "40000954", description: "KS-C-0-900-DO13", name: "Chỉ đỏ", category: "CHỈ MAY" },
+            { sapCode: "110000007", description: "Chỉ may-PP-T se V-500x3-bền cao", name: "Chỉ may yara", category: "CHỈ MAY" },
+            { sapCode: "40000946", description: "KS-C-0-1200-D0", name: "Chỉ trắng pp 1200D", category: "CHỈ MAY" },
+            { sapCode: "40000949", description: "KS-C-0-900-VA51", name: "Chỉ vàng đồng", category: "CHỈ MAY" },
+            { sapCode: "110000015", description: "Chỉ may-cotton-7 sợi-Đỏ,XL,XD,V,C,N,T-SO", name: "Chỉ cotton 7 màu", category: "CHỈ MAY" },
+            { sapCode: "110000013", description: "Chỉ may-cotton-9 sợi-Đen-SO", name: "Chỉ cotton đen", category: "CHỈ MAY" },
+            { sapCode: "110000012", description: "Chỉ may-cotton-9 sợi-XD-SO", name: "Chỉ cotton xanh dương", category: "CHỈ MAY" },
+            { sapCode: "40000951", description: "KS-C-0-900-D0U1", name: "PP TRẮNG UV", category: "CHỈ MAY" },
+            { sapCode: "400075819", description: "CA-MANHDONGDAI.01-KX-K0", name: "Cáp chỉ đóng đai", category: "CHỈ MAY" },
+
+            // KEO DÁN LƯNG / KHÁC
+            { sapCode: "100000055", description: "Hạt nhựa PP trắng", name: "Hạt nhựa PP trắng", category: "KEO DÁN LƯNG / KHÁC" },
+            { sapCode: "100000073", description: "Hạt nhựa LDPE trắng", name: "Hạt nhựa LDPE trắng", category: "KEO DÁN LƯNG / KHÁC" },
+            { sapCode: "110000228", description: "Hạt titan vistamaxx 6202-TR-Phương Nam", name: "Hạt titan vistamaxx 6202", category: "KEO DÁN LƯNG / KHÁC" },
+            { sapCode: "100000110", description: "Taical PT001-25kg-Thái Lan-TR", name: "Taical PT001 25kg", category: "KEO DÁN LƯNG / KHÁC" }
+        ];
+
+        let masterMaterials = loadStorage('masterMaterials', defaultMaterials);
+        let currentSheetItems = [];
+        let historyRecords = loadStorage('historyRecords', []);
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('user-date').value = new Date().toISOString().split('T')[0];
+            document.getElementById('user-machine').innerHTML = machines.map(m => `<option value="${m}">${m}</option>`).join('');
+            
+            populateManualSAPSelect();
+            lucide.createIcons();
+        });
+
+        function saveStorage(key, val) {
+            try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
+        }
+        function loadStorage(key, defaultVal) {
+            try {
+                const data = localStorage.getItem(key);
+                return data ? JSON.parse(data) : defaultVal;
+            } catch (e) { return defaultVal; }
+        }
+
+        function populateManualSAPSelect() {
+            const select = document.getElementById('manual-sap-select');
+            select.innerHTML = `<option value="">-- Chọn mã thủ công --</option>` + 
+                masterMaterials.map(m => `<option value="${m.sapCode}">[${m.sapCode}] ${m.name}</option>`).join('');
+        }
+
+        function switchTab(tabId) {
+            document.getElementById('user-tab').classList.add('hidden');
+            document.getElementById('history-tab').classList.add('hidden');
+            document.getElementById('admin-tab').classList.add('hidden');
+
+            document.getElementById('btn-user-tab').className = "px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-300 hover:text-white";
+            document.getElementById('btn-history-tab').className = "px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-300 hover:text-white";
+
+            if (tabId === 'user-tab') {
+                document.getElementById('user-tab').classList.remove('hidden');
+                document.getElementById('btn-user-tab').className = "px-3 py-1.5 rounded-lg text-xs font-bold transition bg-blue-600 text-white shadow";
+            } else if (tabId === 'history-tab') {
+                document.getElementById('history-tab').classList.remove('hidden');
+                document.getElementById('btn-history-tab').className = "px-3 py-1.5 rounded-lg text-xs font-bold transition bg-blue-600 text-white shadow";
+                renderHistoryTable();
+            } else if (tabId === 'admin-tab') {
+                document.getElementById('admin-tab').classList.remove('hidden');
+                renderAdminMaterialsTable();
+            }
+        }
+
+        // ================= QR SCANNER LOGIC =================
+        function startQRScanner() {
+            document.getElementById('qr-modal').classList.remove('hidden');
+            document.getElementById('qr-modal').classList.add('flex');
+
+            html5QrCodeScanner = new Html5Qrcode("qr-reader");
+            html5QrCodeScanner.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 220, height: 220 } },
+                (decodedText) => {
+                    stopQRScanner();
+                    processScannedSAPCode(decodedText.trim());
+                },
+                (err) => {}
+            ).catch(err => {
+                showToast("Không mở được camera. Vui lòng chọn thủ công bên dưới!", "error");
+                stopQRScanner();
+            });
+        }
+
+        function stopQRScanner() {
+            if (html5QrCodeScanner) {
+                html5QrCodeScanner.stop().then(() => {
+                    html5QrCodeScanner.clear();
+                    html5QrCodeScanner = null;
+                }).catch(err => {});
+            }
+            document.getElementById('qr-modal').classList.add('hidden');
+            document.getElementById('qr-modal').classList.remove('flex');
+        }
+
+        function onManualSAPSelect() {
+            const sap = document.getElementById('manual-sap-select').value;
+            if (sap) processScannedSAPCode(sap);
+        }
+
+        function processScannedSAPCode(sapCode) {
+            const mat = masterMaterials.find(m => m.sapCode === sapCode);
+            if (!mat) {
+                showToast(`Không tìm thấy mã SAP [${sapCode}]!`, "error");
+                return;
+            }
+
+            currentScannedMaterial = mat;
+            document.getElementById('res-category').innerText = mat.category;
+            document.getElementById('res-name').innerText = mat.name;
+            document.getElementById('res-sap').innerText = mat.sapCode;
+            document.getElementById('res-desc').innerText = mat.description || 'N/A';
+
+            document.getElementById('input-qty').value = '';
+            document.getElementById('input-tubes').value = '';
+            document.getElementById('input-note').value = '';
+
+            document.getElementById('scanned-result-card').classList.remove('hidden');
+            document.getElementById('input-qty').focus();
+        }
+
+        function cancelScanItem() {
+            currentScannedMaterial = null;
+            document.getElementById('scanned-result-card').classList.add('hidden');
+        }
+
+        function addScannedItemToList() {
+            if (!currentScannedMaterial) return;
+
+            const qty = parseFloat(document.getElementById('input-qty').value) || 0;
+            const tubes = parseInt(document.getElementById('input-tubes').value) || 0;
+            const note = document.getElementById('input-note').value;
+
+            if (qty <= 0 && tubes <= 0) {
+                showToast("Vui lòng nhập Số lượng hoặc Số ống/cuộn!", "error");
+                return;
+            }
+
+            currentSheetItems.push({
+                sapCode: currentScannedMaterial.sapCode,
+                name: currentScannedMaterial.name,
+                category: currentScannedMaterial.category,
+                quantity: qty,
+                tubes: tubes,
+                note: note
+            });
+
+            renderCurrentSheetItems();
+            cancelScanItem();
+            showToast("Đã thêm vật tư vào phiếu!");
+        }
+
+        function renderCurrentSheetItems() {
+            const tbody = document.getElementById('current-items-tbody');
+            document.getElementById('current-items-count').innerText = `${currentSheetItems.length} vật tư`;
+
+            if (currentSheetItems.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400 italic">Chưa quét vật tư nào. Bấm nút Quét QR để bắt đầu.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = currentSheetItems.map((item, idx) => `
+                <tr class="hover:bg-slate-50 transition">
+                    <td class="p-2.5 font-bold text-slate-400">${idx + 1}</td>
+                    <td class="p-2.5">
+                        <div class="font-bold text-slate-900">${item.name}</div>
+                        <div class="text-[10px] text-slate-500 font-mono">SAP: ${item.sapCode}</div>
+                    </td>
+                    <td class="p-2.5"><span class="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-bold border">${item.category}</span></td>
+                    <td class="p-2.5 font-bold text-emerald-600">${item.quantity}</td>
+                    <td class="p-2.5 font-bold text-blue-600">${item.tubes}</td>
+                    <td class="p-2.5 text-center">
+                        <button onclick="removeCurrentItem(${idx})" class="text-red-500 hover:text-red-700 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function removeCurrentItem(idx) {
+            currentSheetItems.splice(idx, 1);
+            renderCurrentSheetItems();
+        }
+
+        function saveFullInventorySheet() {
+            const userName = document.getElementById('user-name').value.trim();
+            const machine = document.getElementById('user-machine').value;
+            const date = document.getElementById('user-date').value;
+
+            if (!userName) {
+                showToast("Vui lòng nhập Tên người tạo phiếu!", "error");
+                document.getElementById('user-name').focus();
+                return;
+            }
+
+            if (currentSheetItems.length === 0) {
+                showToast("Phiếu kiểm kê chưa có vật tư nào!", "error");
+                return;
+            }
+
+            const record = {
+                id: 'KK-' + Math.floor(100000 + Math.random() * 900000),
+                date: date,
+                machine: machine,
+                createdBy: userName,
+                items: [...currentSheetItems]
+            };
+
+            historyRecords.unshift(record);
+            saveStorage('historyRecords', historyRecords);
+
+            currentSheetItems = [];
+            renderCurrentSheetItems();
+            showToast(`Đã lưu phiếu [${record.id}] thành công!`);
+            switchTab('history-tab');
+        }
+
+        // ================= HISTORY LOGS & EXCEL EXPORT =================
+        function renderHistoryTable() {
+            const tbody = document.getElementById('history-tbody');
+            if (historyRecords.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400 italic">Chưa có phiếu kiểm kê nào được lưu</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = historyRecords.map(r => `
+                <tr class="hover:bg-slate-50 transition">
+                    <td class="p-2.5 font-bold text-blue-600 font-mono">${r.id}</td>
+                    <td class="p-2.5 font-medium">${r.date}</td>
+                    <td class="p-2.5"><span class="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-bold border">${r.machine}</span></td>
+                    <td class="p-2.5 text-slate-700 font-semibold">${r.createdBy}</td>
+                    <td class="p-2.5 text-center font-bold text-slate-800">${r.items.length}</td>
+                    <td class="p-2.5 text-right">
+                        <button onclick="viewHistoryDetail('${r.id}')" class="text-blue-600 font-bold text-xs underline">Xem</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function viewHistoryDetail(id) {
+            const rec = historyRecords.find(r => r.id === id);
+            if (!rec) return;
+
+            document.getElementById('detail-modal-title').innerText = `Chi Tiết Phiếu: ${rec.id}`;
+            document.getElementById('detail-modal-info').innerHTML = `
+                <div>MÁY: <span class="font-bold text-slate-900">${rec.machine}</span></div>
+                <div>NGÀY: <span class="font-bold text-slate-900">${rec.date}</span></div>
+                <div>NGƯỜI TẠO: <span class="font-bold text-slate-900">${rec.createdBy}</span></div>
+            `;
+
+            document.getElementById('detail-modal-tbody').innerHTML = rec.items.map((it, idx) => `
+                <tr>
+                    <td class="p-2 font-bold">${idx + 1}</td>
+                    <td class="p-2 font-mono text-slate-500">${it.sapCode}</td>
+                    <td class="p-2 font-semibold text-slate-800">${it.name}</td>
+                    <td class="p-2 font-bold text-emerald-600">${it.quantity}</td>
+                    <td class="p-2 font-bold text-blue-600">${it.tubes}</td>
+                </tr>
+            `).join('');
+
+            document.getElementById('detail-modal').classList.remove('hidden');
+            document.getElementById('detail-modal').classList.add('flex');
+        }
+
+        function closeDetailModal() {
+            document.getElementById('detail-modal').classList.add('hidden');
+            document.getElementById('detail-modal').classList.remove('flex');
+        }
+
+        function exportToExcel() {
+            if (historyRecords.length === 0) {
+                showToast("Chưa có dữ liệu lịch sử để xuất Excel!", "error");
+                return;
+            }
+
+            let excelData = [];
+            historyRecords.forEach(r => {
+                r.items.forEach(it => {
+                    excelData.push({
+                        "Mã Phiếu": r.id,
+                        "Ngày Kiểm Kê": r.date,
+                        "Máy Cắt": r.machine,
+                        "Người Kiểm Kê": r.createdBy,
+                        "Mã SAP": it.sapCode,
+                        "Tên Nguyên Vật Liệu": it.name,
+                        "Danh Mục": it.category,
+                        "Số Lượng": it.quantity,
+                        "Số Ống/Cuộn": it.tubes,
+                        "Ghi Chú": it.note
+                    });
+                });
+            });
+
+            const worksheet = XLSX.utils.json_to_sheet(excelData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "NhatKyKiemKe");
+            XLSX.writeFile(workbook, `KiemKe_NVL_${new Date().toISOString().split('T')[0]}.xlsx`);
+        }
+
+        // ================= ADMIN AUTH & MATERIAL MASTER =================
+        function openAdminAuthModal() {
+            if (isAdminAuthenticated) {
+                switchTab('admin-tab');
+            } else {
+                document.getElementById('admin-pass-input').value = '';
+                document.getElementById('admin-auth-modal').classList.remove('hidden');
+                document.getElementById('admin-auth-modal').classList.add('flex');
+            }
+        }
+
+        function closeAdminAuthModal() {
+            document.getElementById('admin-auth-modal').classList.add('hidden');
+            document.getElementById('admin-auth-modal').classList.remove('flex');
+        }
+
+        function verifyAdminPass(e) {
+            e.preventDefault();
+            const pass = document.getElementById('admin-pass-input').value;
+            if (pass === '123456') {
+                isAdminAuthenticated = true;
+                closeAdminAuthModal();
+                switchTab('admin-tab');
+                showToast("Đã mở khóa quyền Admin!");
+            } else {
+                showToast("Mật khẩu Admin không đúng!", "error");
+            }
+        }
+
+        function renderAdminMaterialsTable() {
+            const tbody = document.getElementById('admin-materials-tbody');
+            tbody.innerHTML = masterMaterials.map((m) => `
+                <tr class="hover:bg-slate-50 transition">
+                    <td class="p-2.5 font-mono font-bold text-blue-700">${m.sapCode}</td>
+                    <td class="p-2.5 font-semibold text-slate-800">${m.name}</td>
+                    <td class="p-2.5 text-slate-500 font-mono text-[11px]">${m.description}</td>
+                    <td class="p-2.5"><span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 border">${m.category}</span></td>
+                    <td class="p-2.5 text-center">
+                        <button onclick="deleteMaterialMaster('${m.sapCode}')" class="text-red-500 hover:text-red-700 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function openAddMaterialModal() {
+            document.getElementById('add-material-modal').classList.remove('hidden');
+            document.getElementById('add-material-modal').classList.add('flex');
+        }
+
+        function closeAddMaterialModal() {
+            document.getElementById('add-material-modal').classList.add('hidden');
+            document.getElementById('add-material-modal').classList.remove('flex');
+        }
+
+        function saveNewMaterialAdmin(e) {
+            e.preventDefault();
+            const sap = document.getElementById('modal-sap-input').value.trim();
+            const name = document.getElementById('modal-name-input').value.trim();
+            const desc = document.getElementById('modal-desc-input').value.trim();
+            const cat = document.getElementById('modal-cat-input').value;
+
+            if (masterMaterials.some(m => m.sapCode === sap)) {
+                showToast("Mã SAP này đã tồn tại trong Master Data!", "error");
+                return;
+            }
+
+            masterMaterials.push({ sapCode: sap, name, description: desc, category: cat });
+            saveStorage('masterMaterials', masterMaterials);
+
+            closeAddMaterialModal();
+            renderAdminMaterialsTable();
+            populateManualSAPSelect();
+            showToast("Admin đã thêm mã SAP mới thành công!");
+        }
+
+        function deleteMaterialMaster(sapCode) {
+            if (confirm(`Admin xác nhận xóa mã SAP [${sapCode}]?`)) {
+                masterMaterials = masterMaterials.filter(m => m.sapCode !== sapCode);
+                saveStorage('masterMaterials', masterMaterials);
+
+                renderAdminMaterialsTable();
+                populateManualSAPSelect();
+                showToast("Đã xóa mã SAP!");
+            }
+        }
+
+        function showToast(msg, type = "success") {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = msg;
+            toast.className = `fixed bottom-5 right-5 text-white px-4 py-2.5 rounded-xl shadow-2xl transition transform translate-y-0 opacity-100 flex items-center space-x-2 z-50 text-xs font-medium ${type === 'error' ? 'bg-red-900 border border-red-700' : 'bg-slate-900'}`;
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
+
