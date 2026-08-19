@@ -52,6 +52,12 @@
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col antialiased overflow-x-hidden max-w-full w-full">
 
+    <!-- Notification Toast hiển thị ở GÓC TRÊN MÀN HÌNH, tự biến mất sau 1 giây -->
+    <div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-4 py-2.5 rounded-xl shadow-2xl transition-all duration-300 transform -translate-y-20 opacity-0 pointer-events-none flex items-center space-x-2 z-50 text-xs font-medium max-w-[90vw]">
+        <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400 shrink-0"></i>
+        <span id="toast-msg" class="truncate">Thao tác thành công!</span>
+    </div>
+
     <!-- Header Navigation Bar -->
     <header class="bg-slate-900 text-white shadow-md sticky top-0 z-40 w-full max-w-full overflow-hidden">
         <div class="max-w-4xl mx-auto px-3 sm:px-4 h-16 flex justify-between items-center w-full">
@@ -89,22 +95,16 @@
         <!-- ================= TAB 1: GIAO DIỆN NHẬP PHIẾU CÔNG NHÂN ================= -->
         <section id="user-tab" class="space-y-4 w-full max-w-full">
             
-            <!-- Thông tin phiếu -->
+            <!-- Thông tin người tạo phiếu -->
             <div class="bg-white rounded-xl p-3.5 sm:p-4 shadow-sm border border-slate-200 space-y-3 w-full max-w-full overflow-hidden">
                 <h2 class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center">
                     <i data-lucide="user" class="w-4 h-4 mr-1.5 text-blue-600"></i>
                     1. Thông Tin Phiếu Kiểm Kê
                 </h2>
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs font-medium w-full">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-medium w-full">
                     <div class="w-full">
                         <label class="block text-slate-600 mb-1 font-semibold">Tên Người Tạo Phiếu <span class="text-red-500">*</span></label>
                         <input type="text" id="user-name" placeholder="Ví dụ: Đội 1 - Nguyễn Văn A" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-slate-800 box-border">
-                    </div>
-                    <div class="w-full">
-                        <label class="block text-slate-600 mb-1 font-semibold">Chọn Máy Cắt <span class="text-red-500">*</span></label>
-                        <select id="user-machine" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-slate-800 box-border">
-                            <!-- Populated dynamically -->
-                        </select>
                     </div>
                     <div class="w-full">
                         <label class="block text-slate-600 mb-1 font-semibold">Ngày Kiểm Kê</label>
@@ -148,28 +148,40 @@
                     </span>
                 </div>
 
-                <!-- Khung Nhập Số Lượng và Số Ống -->
-                <div class="grid grid-cols-2 gap-2 pt-2 border-t border-blue-200 w-full">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Số Lượng <span class="text-red-500">*</span></label>
-                        <input type="number" step="0.1" min="0" id="input-qty" placeholder="0.0" class="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-base font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-500 box-border">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Số Ống / Cuộn <span class="text-red-500">*</span></label>
-                        <input type="number" min="0" id="input-tubes" placeholder="0" class="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-base font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-500 box-border">
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Ghi Chú (Nếu có)</label>
-                    <input type="text" id="input-note" placeholder="Nhập ghi chú..." class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs outline-none box-border">
+                <!-- BẮT BUỘC CHỌN MÁY CẮT TRƯỚC KHI HIỆN CÁC TRƯỜNG NHẬP -->
+                <div class="pt-2 border-t border-blue-200">
+                    <label class="block text-xs font-bold text-slate-800 uppercase mb-1">
+                        1. Chọn Máy Cắt <span class="text-red-500">*</span>
+                    </label>
+                    <select id="input-machine" onchange="onMachineSelectChange()" class="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-500 box-border">
+                        <!-- Dynamic Machine options -->
+                    </select>
                 </div>
 
-                <div class="flex space-x-2 pt-1 w-full">
-                    <button onclick="cancelScanItem()" class="w-1/3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2.5 rounded-lg text-xs">Hủy</button>
-                    <button onclick="addScannedItemToList()" class="w-2/3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg text-xs shadow flex items-center justify-center space-x-1">
-                        <i data-lucide="plus-circle" class="w-4 h-4"></i>
-                        <span>THÊM VÀO PHIẾU</span>
-                    </button>
+                <!-- Khung Nhập Số Lượng & Số Ống (Chỉ xuất hiện khi đã chọn Máy Cắt) -->
+                <div id="input-fields-container" class="hidden space-y-3 pt-1">
+                    <div class="grid grid-cols-2 gap-2 w-full">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">2. Số Lượng <span class="text-red-500">*</span></label>
+                            <input type="number" step="0.1" min="0" id="input-qty" placeholder="0.0" class="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-base font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-500 box-border">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">3. Số Ống / Cuộn <span class="text-red-500">*</span></label>
+                            <input type="number" min="0" id="input-tubes" placeholder="0" class="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-base font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-500 box-border">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Ghi Chú (Nếu có)</label>
+                        <input type="text" id="input-note" placeholder="Nhập ghi chú..." class="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs outline-none box-border">
+                    </div>
+
+                    <div class="flex space-x-2 pt-1 w-full">
+                        <button onclick="cancelScanItem()" class="w-1/3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2.5 rounded-lg text-xs">Hủy</button>
+                        <button onclick="addScannedItemToList()" class="w-2/3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg text-xs shadow flex items-center justify-center space-x-1">
+                            <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                            <span>THÊM VÀO PHIẾU</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -189,6 +201,7 @@
                             <tr>
                                 <th class="p-2 text-center w-8">STT</th>
                                 <th class="p-2">Mã & Tên Vật Tư</th>
+                                <th class="p-2">Máy Cắt</th>
                                 <th class="p-2">Số Lượng</th>
                                 <th class="p-2">Số Ống</th>
                                 <th class="p-2 text-center w-10">Xóa</th>
@@ -196,7 +209,7 @@
                         </thead>
                         <tbody id="current-items-tbody" class="divide-y divide-slate-100">
                             <tr>
-                                <td colspan="5" class="p-4 text-center text-slate-400 italic">Chưa quét vật tư nào. Bấm nút Quét QR để bắt đầu.</td>
+                                <td colspan="6" class="p-4 text-center text-slate-400 italic">Chưa quét vật tư nào. Bấm nút Quét QR để bắt đầu.</td>
                             </tr>
                         </tbody>
                     </table>
@@ -211,7 +224,7 @@
             </div>
         </section>
 
-        <!-- ================= TAB 2: LỊCH SỬ PHIẾU (CÓ TÍNH NĂNG SỬA & XÓA CHO ADMIN) ================= -->
+        <!-- ================= TAB 2: LỊCH SỬ PHIẾU (SỬA/XÓA CHO ADMIN) ================= -->
         <section id="history-tab" class="hidden space-y-4 w-full max-w-full">
             <div class="bg-white rounded-xl p-3.5 sm:p-4 shadow-sm border border-slate-200 space-y-3 w-full max-w-full overflow-hidden">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 w-full">
@@ -220,7 +233,6 @@
                             <i data-lucide="history" class="w-4 h-4 mr-1.5 text-blue-600 shrink-0"></i>
                             Nhật Ký Kiểm Kê Đã Đồng Bộ
                         </h2>
-                        <p class="text-[11px] text-slate-500">Admin có quyền Sửa/Xóa phiếu nếu công nhân nhập sai</p>
                     </div>
                     <button onclick="exportToExcel()" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-2 rounded-lg flex items-center justify-center space-x-1 shadow">
                         <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
@@ -414,6 +426,7 @@
                         <thead class="bg-slate-100 font-bold text-slate-700">
                             <tr>
                                 <th class="p-1.5">STT</th>
+                                <th class="p-1.5">Máy Cắt</th>
                                 <th class="p-1.5">Tên Hàng</th>
                                 <th class="p-1.5">SL</th>
                                 <th class="p-1.5">Ống</th>
@@ -434,16 +447,10 @@
                 <button onclick="closeEditSheetModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
             </div>
             <div class="p-3.5 space-y-3 overflow-y-auto flex-grow text-xs">
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div>
-                        <label class="block font-bold text-slate-600 mb-1">Người Tạo</label>
+                        <label class="block font-bold text-slate-600 mb-1">Người Tạo Phiếu</label>
                         <input type="text" id="edit-sheet-user" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-bold outline-none">
-                    </div>
-                    <div>
-                        <label class="block font-bold text-slate-600 mb-1">Máy Cắt</label>
-                        <select id="edit-sheet-machine" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-bold outline-none">
-                            <!-- Machine options -->
-                        </select>
                     </div>
                     <div>
                         <label class="block font-bold text-slate-600 mb-1">Ngày Kiểm Kê</label>
@@ -563,12 +570,6 @@
         </div>
     </div>
 
-    <!-- Notification Toast -->
-    <div id="toast" class="fixed bottom-4 right-4 bg-slate-900 text-white px-3.5 py-2 rounded-xl shadow-2xl transition transform translate-y-20 opacity-0 flex items-center space-x-2 z-50 text-xs font-medium max-w-[90vw]">
-        <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400 shrink-0"></i>
-        <span id="toast-msg" class="truncate">Thao tác thành công!</span>
-    </div>
-
     <!-- Application Script -->
     <script>
         // Cấu hình CHÍNH XÁC từ dự án kiemke-6602e của bạn
@@ -649,7 +650,7 @@
             { sapCode: "100000073", description: "Hạt nhựa LDPE trắng", name: "Hạt nhựa LDPE trắng", category: "KEO DÁN LƯNG", aliases: ["HẠT NHỰA LDPE TRẮNG"] }
         ];
 
-        // LƯU Ý: Dùng loadStorageArray để tôn trọng mảng rỗng hoặc ít item mà Admin đã chủ động xóa
+        // LƯU Ý: Tôn trọng mảng ít item hoặc mảng rỗng khi Admin đã chủ động xóa
         function loadStorageArray(key, defaultVal) {
             try {
                 const data = localStorage.getItem(key);
@@ -718,7 +719,7 @@
                 }
             }, (err) => { console.warn("Machine sync warning:", err); });
 
-            // Sync master materials - ĐÃ FIX KHÔNG TỰ ĐỘNG NẠP LẠI MÃ CŨ NẾU ADMIN XÓA
+            // Sync master materials
             db.collection("settings").doc("materials").onSnapshot((doc) => {
                 if (doc.exists && doc.data() && Array.isArray(doc.data().list)) {
                     masterMaterials = doc.data().list;
@@ -795,11 +796,6 @@
         }
 
         function renderMachineDropdowns() {
-            const select = document.getElementById('user-machine');
-            if (select) {
-                select.innerHTML = machines.map(m => `<option value="${m}">${m}</option>`).join('');
-            }
-
             const adminChips = document.getElementById('admin-machines-chips');
             if (adminChips) {
                 adminChips.innerHTML = machines.map((m, idx) => `
@@ -959,6 +955,7 @@
             }
         }
 
+        // BẮT BUỘC CHỌN MÁY CẮT CHO MỖI LẦN QUÉT (KHÔNG TỰ ĐỘNG GHI NHỚ)
         function displayRecognizedMaterial(mat, qrRawText) {
             if (!mat) return;
             currentScannedMaterial = mat;
@@ -978,6 +975,18 @@
             const qrEl = document.getElementById('res-qr-raw');
             if (qrEl) qrEl.innerText = qrRawText || mat.name || 'N/A';
 
+            // Reset menu Máy Cắt về vị trí RỖNG (Bắt buộc chọn lại cho từng vật tư)
+            const machineSelect = document.getElementById('input-machine');
+            if (machineSelect) {
+                machineSelect.innerHTML = `<option value="">-- Bắt buộc chọn Máy Cắt --</option>` + 
+                    machines.map(m => `<option value="${m}">${m}</option>`).join('');
+                machineSelect.value = "";
+            }
+
+            // Ẩn khung điền số lượng cho đến khi chọn máy cắt
+            const fieldsContainer = document.getElementById('input-fields-container');
+            if (fieldsContainer) fieldsContainer.classList.add('hidden');
+
             const qtyEl = document.getElementById('input-qty');
             if (qtyEl) qtyEl.value = '';
 
@@ -990,17 +999,28 @@
             const card = document.getElementById('scanned-result-card');
             if (card) {
                 card.classList.remove('hidden');
-                try {
-                    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                } catch(e){}
+                try { card.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch(e){}
             }
+        }
 
-            setTimeout(() => {
-                try {
-                    const inputQty = document.getElementById('input-qty');
-                    if (inputQty) inputQty.focus();
-                } catch(e){}
-            }, 200);
+        // KHI CHỌN MÁY CẮT -> MỚI MỞ CÁC Ô NHẬP CÒN LẠI
+        function onMachineSelectChange() {
+            const machineSelect = document.getElementById('input-machine');
+            const fieldsContainer = document.getElementById('input-fields-container');
+            
+            if (machineSelect && fieldsContainer) {
+                if (machineSelect.value !== "") {
+                    fieldsContainer.classList.remove('hidden');
+                    setTimeout(() => {
+                        try {
+                            const inputQty = document.getElementById('input-qty');
+                            if (inputQty) inputQty.focus();
+                        } catch(e){}
+                    }, 100);
+                } else {
+                    fieldsContainer.classList.add('hidden');
+                }
+            }
         }
 
         function closeUnmappedModal() {
@@ -1033,6 +1053,14 @@
         function addScannedItemToList() {
             if (!currentScannedMaterial) return;
 
+            const machineSelect = document.getElementById('input-machine');
+            const selectedMachine = machineSelect ? machineSelect.value : "";
+
+            if (!selectedMachine) {
+                showToast("Bắt buộc phải chọn Máy Cắt!", "error");
+                return;
+            }
+
             const qty = parseFloat(document.getElementById('input-qty').value) || 0;
             const tubes = parseInt(document.getElementById('input-tubes').value) || 0;
             const note = document.getElementById('input-note').value;
@@ -1046,6 +1074,7 @@
                 sapCode: currentScannedMaterial.sapCode,
                 name: currentScannedMaterial.name,
                 category: currentScannedMaterial.category,
+                machine: selectedMachine, // Ghi nhận máy cắt riêng cho từng vật tư
                 quantity: qty,
                 tubes: tubes,
                 note: note
@@ -1061,17 +1090,18 @@
             document.getElementById('current-items-count').innerText = `${currentSheetItems.length} vật tư`;
 
             if (currentSheetItems.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400 italic">Chưa quét vật tư nào. Bấm nút Quét QR để bắt đầu.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400 italic">Chưa quét vật tư nào. Bấm nút Quét QR để bắt đầu.</td></tr>`;
                 return;
             }
 
             tbody.innerHTML = currentSheetItems.map((item, idx) => `
                 <tr class="hover:bg-slate-50 transition">
                     <td class="p-2 text-center font-bold text-slate-400">${idx + 1}</td>
-                    <td class="p-2 truncate max-w-[150px]">
+                    <td class="p-2 truncate max-w-[140px]">
                         <div class="font-bold text-slate-900 truncate">${item.name}</div>
                         <div class="text-[10px] text-slate-500 font-mono truncate">SAP: ${item.sapCode}</div>
                     </td>
+                    <td class="p-2"><span class="px-1.5 py-0.5 rounded bg-slate-100 text-[10px] font-bold border border-slate-200">${item.machine}</span></td>
                     <td class="p-2 font-bold text-emerald-600">${item.quantity}</td>
                     <td class="p-2 font-bold text-blue-600">${item.tubes}</td>
                     <td class="p-2 text-center">
@@ -1089,7 +1119,6 @@
 
         async function saveFullInventorySheet() {
             const userName = document.getElementById('user-name').value.trim();
-            const machine = document.getElementById('user-machine').value;
             const date = document.getElementById('user-date').value;
 
             if (!userName) {
@@ -1103,11 +1132,12 @@
                 return;
             }
 
+            const primaryMachine = currentSheetItems[0] ? currentSheetItems[0].machine : (machines[0] || 'N/A');
             const sheetId = 'KK-' + Math.floor(100000 + Math.random() * 900000);
             const record = {
                 id: sheetId,
                 date: date,
-                machine: machine,
+                machine: primaryMachine,
                 createdBy: userName,
                 items: [...currentSheetItems],
                 createdAt: new Date().toISOString()
@@ -1134,7 +1164,7 @@
             switchTab('history-tab');
         }
 
-        // BẢNG HIỂN THỊ NHẬT KÝ (BỔ SUNG THAO TÁC SỬA/XÓA CHO ADMIN)
+        // BẢNG HIỂN THỊ NHẬT KÝ (THAO TÁC SỬA/XÓA CHO ADMIN)
         function renderHistoryTable() {
             const tbody = document.getElementById('history-tbody');
             if (!Array.isArray(historyRecords) || historyRecords.length === 0) {
@@ -1146,7 +1176,7 @@
                 <tr class="hover:bg-slate-50 transition">
                     <td class="p-2 font-bold text-blue-600 font-mono">${r.id}</td>
                     <td class="p-2 font-medium">${r.date}</td>
-                    <td class="p-2"><span class="px-1.5 py-0.5 rounded bg-slate-100 text-[10px] font-bold border">${r.machine}</span></td>
+                    <td class="p-2"><span class="px-1.5 py-0.5 rounded bg-slate-100 text-[10px] font-bold border">${r.machine || 'N/A'}</span></td>
                     <td class="p-2 text-slate-700 font-semibold truncate max-w-[80px]">${r.createdBy}</td>
                     <td class="p-2 text-center font-bold text-slate-800">${r.items ? r.items.length : 0}</td>
                     <td class="p-2 text-right">
@@ -1200,11 +1230,6 @@
             document.getElementById('edit-sheet-user').value = rec.createdBy || '';
             document.getElementById('edit-sheet-date').value = rec.date || new Date().toISOString().split('T')[0];
 
-            const machineSelect = document.getElementById('edit-sheet-machine');
-            if (machineSelect) {
-                machineSelect.innerHTML = machines.map(m => `<option value="${m}" ${m === rec.machine ? 'selected' : ''}>${m}</option>`).join('');
-            }
-
             renderEditingSheetItems();
 
             document.getElementById('edit-sheet-modal').classList.remove('hidden');
@@ -1226,7 +1251,13 @@
                         <div class="font-bold text-slate-800 text-xs truncate max-w-[200px]">[${it.sapCode}] ${it.name}</div>
                         <button onclick="removeEditingSheetItem(${idx})" class="text-red-500 hover:text-red-700 p-0.5"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
                     </div>
-                    <div class="grid grid-cols-2 gap-2">
+                    <div class="grid grid-cols-3 gap-2">
+                        <div>
+                            <span class="text-[10px] text-slate-500 font-semibold">Máy Cắt</span>
+                            <select onchange="updateEditingSheetItemMachine(${idx}, this.value)" class="w-full bg-white border border-slate-300 rounded p-1 text-xs font-bold">
+                                ${machines.map(m => `<option value="${m}" ${m === it.machine ? 'selected' : ''}>${m}</option>`).join('')}
+                            </select>
+                        </div>
                         <div>
                             <span class="text-[10px] text-slate-500 font-semibold">Số Lượng</span>
                             <input type="number" step="0.1" min="0" value="${it.quantity}" onchange="updateEditingSheetItemQty(${idx}, this.value)" class="w-full bg-white border border-slate-300 rounded p-1 text-xs font-bold">
@@ -1239,6 +1270,10 @@
                 </div>
             `).join('');
             lucide.createIcons();
+        }
+
+        function updateEditingSheetItemMachine(idx, val) {
+            if (editingSheetItems[idx]) editingSheetItems[idx].machine = val;
         }
 
         function updateEditingSheetItemQty(idx, val) {
@@ -1266,6 +1301,7 @@
                 sapCode: mat.sapCode,
                 name: mat.name,
                 category: mat.category,
+                machine: machines[0] || 'Máy Cắt 1',
                 quantity: 1,
                 tubes: 1,
                 note: ""
@@ -1277,7 +1313,6 @@
             if (!editingSheetId) return;
 
             const userName = document.getElementById('edit-sheet-user').value.trim();
-            const machine = document.getElementById('edit-sheet-machine').value;
             const date = document.getElementById('edit-sheet-date').value;
 
             if (!userName) {
@@ -1288,8 +1323,8 @@
             const idx = historyRecords.findIndex(r => r.id === editingSheetId);
             if (idx !== -1) {
                 historyRecords[idx].createdBy = userName;
-                historyRecords[idx].machine = machine;
                 historyRecords[idx].date = date;
+                historyRecords[idx].machine = editingSheetItems[0] ? editingSheetItems[0].machine : (machines[0] || 'N/A');
                 historyRecords[idx].items = [...editingSheetItems];
 
                 saveStorage('app_history', historyRecords);
@@ -1319,7 +1354,7 @@
 
             document.getElementById('detail-modal-title').innerText = `Chi Tiết Phiếu: ${rec.id}`;
             document.getElementById('detail-modal-info').innerHTML = `
-                <div>MÁY: <span class="font-bold text-slate-900">${rec.machine}</span></div>
+                <div>MÁY: <span class="font-bold text-slate-900">${rec.machine || 'N/A'}</span></div>
                 <div>NGÀY: <span class="font-bold text-slate-900">${rec.date}</span></div>
                 <div>TẠO: <span class="font-bold text-slate-900">${rec.createdBy}</span></div>
             `;
@@ -1327,6 +1362,7 @@
             document.getElementById('detail-modal-tbody').innerHTML = (rec.items || []).map((it, idx) => `
                 <tr>
                     <td class="p-1.5 font-bold">${idx + 1}</td>
+                    <td class="p-1.5 font-semibold text-slate-700">${it.machine || rec.machine || 'N/A'}</td>
                     <td class="p-1.5 font-semibold text-slate-800 truncate max-w-[120px]">${it.name}</td>
                     <td class="p-1.5 font-bold text-emerald-600">${it.quantity}</td>
                     <td class="p-1.5 font-bold text-blue-600">${it.tubes}</td>
@@ -1352,7 +1388,7 @@
             historyRecords.forEach(r => {
                 (r.items || []).forEach(it => {
                     excelData.push({
-                        "MÁY CẮT": r.machine,
+                        "MÁY CẮT": it.machine || r.machine,
                         "DANH MỤC": it.category,
                         "TÊN HÀNG": it.name,
                         "SỐ LƯỢNG": it.quantity,
@@ -1631,17 +1667,20 @@
             }
         }
 
-        // CÀI ĐẶT TOAST TỰ ĐỘNG ẨN SAU 1 GIÂY (1000ms)
+        // CÀI ĐẶT TOAST HIỂN THỊ Ở TRÊN VÀ TỰ ẨN SAU ĐÚNG 1 GIÂY (1000ms)
         function showToast(msg, type = "success") {
             const toast = document.getElementById('toast');
-            if (!toast) return;
+            const toastMsg = document.getElementById('toast-msg');
+            if (!toast || !toastMsg) return;
 
-            document.getElementById('toast-msg').innerText = msg;
-            toast.className = `fixed bottom-4 right-4 text-white px-3.5 py-2 rounded-xl shadow-2xl transition transform translate-y-0 opacity-100 flex items-center space-x-2 z-50 text-xs font-medium max-w-[90vw] ${type === 'error' ? 'bg-red-900 border border-red-700' : 'bg-slate-900'}`;
+            toastMsg.innerText = msg;
             
+            const bgClass = type === 'error' ? 'bg-red-900 border border-red-700' : 'bg-slate-900';
+            toast.className = `fixed top-4 left-1/2 -translate-x-1/2 ${bgClass} text-white px-4 py-2.5 rounded-xl shadow-2xl transition-all duration-300 transform translate-y-0 opacity-100 flex items-center space-x-2 z-50 text-xs font-medium max-w-[90vw]`;
+
             if (toastTimeout) clearTimeout(toastTimeout);
             toastTimeout = setTimeout(() => {
-                toast.classList.add('translate-y-20', 'opacity-0');
+                toast.className = `fixed top-4 left-1/2 -translate-x-1/2 ${bgClass} text-white px-4 py-2.5 rounded-xl shadow-2xl transition-all duration-300 transform -translate-y-20 opacity-0 pointer-events-none flex items-center space-x-2 z-50 text-xs font-medium max-w-[90vw]`;
             }, 1000); // 1s notification duration
         }
     </script>
