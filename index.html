@@ -224,8 +224,10 @@
             </div>
         </section>
 
-        <!-- ================= TAB 2: LỊCH SỬ PHIẾU (SỬA/XÓA CHO ADMIN) ================= -->
+        <!-- ================= TAB 2: LỊCH SỬ PHIẾU & XUẤT/XÓA THEO NGÀY ================= -->
         <section id="history-tab" class="hidden space-y-4 w-full max-w-full">
+            
+            <!-- Khung Lọc & Thao Tác Theo Ngày -->
             <div class="bg-white rounded-xl p-3.5 sm:p-4 shadow-sm border border-slate-200 space-y-3 w-full max-w-full overflow-hidden">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 w-full">
                     <div>
@@ -233,14 +235,46 @@
                             <i data-lucide="history" class="w-4 h-4 mr-1.5 text-blue-600 shrink-0"></i>
                             Nhật Ký Kiểm Kê Đã Đồng Bộ
                         </h2>
+                        <p class="text-[11px] text-slate-500">Đang hiển thị: <b id="displayed-sheets-count" class="text-blue-600">0</b> / <span id="total-sheets-count">0</span> phiếu.</p>
                     </div>
-                    <button onclick="exportToExcel()" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-2 rounded-lg flex items-center justify-center space-x-1 shadow">
+                    <div class="flex space-x-2 w-full sm:w-auto">
+                        <button onclick="setTodayFilter()" class="flex-1 sm:flex-initial bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-2.5 py-1.5 rounded-lg transition border border-slate-300 flex items-center justify-center space-x-1">
+                            <i data-lucide="calendar" class="w-3.5 h-3.5 text-blue-600"></i>
+                            <span>Hôm Nay</span>
+                        </button>
+                        <button onclick="clearDateFilter()" class="flex-1 sm:flex-initial bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-2.5 py-1.5 rounded-lg transition border border-slate-300 flex items-center justify-center space-x-1">
+                            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 text-slate-500"></i>
+                            <span>Tất Cả</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Ô Chọn Khoảng Ngày -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs font-semibold">
+                    <div>
+                        <label class="block text-slate-600 mb-1">Từ Ngày:</label>
+                        <input type="date" id="history-from-date" onchange="renderHistoryTable()" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 box-border">
+                    </div>
+                    <div>
+                        <label class="block text-slate-600 mb-1">Đến Ngày:</label>
+                        <input type="date" id="history-to-date" onchange="renderHistoryTable()" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 box-border">
+                    </div>
+                </div>
+
+                <!-- Nút Thao Tác Xuất Excel & Xóa Theo Ngày -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-slate-100">
+                    <button onclick="exportToExcelByDateRange()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2.5 px-3 rounded-lg flex items-center justify-center space-x-1.5 shadow transition">
                         <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
-                        <span>XUẤT FILE EXCEL</span>
+                        <span>XUẤT EXCEL THEO NGÀY</span>
+                    </button>
+                    <button onclick="deleteSheetsByDateRange()" class="w-full bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-2.5 px-3 rounded-lg flex items-center justify-center space-x-1.5 shadow transition">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        <span>XÓA PHIẾU THEO NGÀY</span>
                     </button>
                 </div>
 
-                <div class="overflow-x-auto border border-slate-200 rounded-lg w-full">
+                <!-- Bảng Hiển Thị Nhật Ký -->
+                <div class="overflow-x-auto border border-slate-200 rounded-lg w-full mt-3">
                     <table class="w-full text-left text-xs min-w-full">
                         <thead class="bg-slate-100 font-bold text-slate-700 uppercase">
                             <tr>
@@ -263,27 +297,6 @@
         <!-- ================= TAB 3: TRANG ADMIN QUẢN LÝ MASTER DATA ================= -->
         <section id="admin-tab" class="hidden space-y-4 w-full max-w-full">
             
-            <!-- Tự động dọn dẹp phiếu cũ -->
-            <div class="bg-amber-50 rounded-xl p-3.5 sm:p-4 shadow-sm border border-amber-200 space-y-3 w-full max-w-full overflow-hidden">
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                    <div>
-                        <h2 class="font-bold text-amber-900 text-sm flex items-center">
-                            <i data-lucide="database-backup" class="w-4 h-4 mr-1.5 text-amber-600 shrink-0"></i>
-                            Dọn Dẹp Dữ Liệu Tự Động
-                        </h2>
-                        <p class="text-[11px] text-amber-800">Đang lưu: <b id="cloud-sheets-count">0</b> phiếu kiểm kê trên CSDL Cloud.</p>
-                    </div>
-                    <div class="flex space-x-2 w-full sm:w-auto">
-                        <button onclick="cleanupOldSheets(30)" class="flex-1 sm:flex-initial bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-2.5 py-1.5 rounded-lg transition">
-                            Xóa Phiếu > 30 Ngày
-                        </button>
-                        <button onclick="cleanupOldSheets(60)" class="flex-1 sm:flex-initial bg-amber-700 hover:bg-amber-800 text-white text-xs font-bold px-2.5 py-1.5 rounded-lg transition">
-                            Xóa Phiếu > 60 Ngày
-                        </button>
-                    </div>
-                </div>
-            </div>
-
             <!-- Quản lý Danh Mục -->
             <div class="bg-white rounded-xl p-3.5 sm:p-4 shadow-sm border border-slate-200 space-y-3 w-full max-w-full overflow-hidden">
                 <div class="flex justify-between items-center">
@@ -650,7 +663,6 @@
             { sapCode: "100000073", description: "Hạt nhựa LDPE trắng", name: "Hạt nhựa LDPE trắng", category: "KEO DÁN LƯNG", aliases: ["HẠT NHỰA LDPE TRẮNG"] }
         ];
 
-        // LƯU Ý: Tôn trọng mảng ít item hoặc mảng rỗng khi Admin đã chủ động xóa
         function loadStorageArray(key, defaultVal) {
             try {
                 const data = localStorage.getItem(key);
@@ -668,7 +680,8 @@
         let currentSheetItems = [];
 
         document.addEventListener('DOMContentLoaded', async () => {
-            document.getElementById('user-date').value = new Date().toISOString().split('T')[0];
+            const todayStr = new Date().toISOString().split('T')[0];
+            document.getElementById('user-date').value = todayStr;
             
             renderCategoryDropdowns();
             renderMachineDropdowns();
@@ -693,7 +706,7 @@
             try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
         }
 
-        // Lắng nghe đồng bộ thời gian thực từ CSDL Firebase (Tôn trọng mảng ít item sau khi xóa)
+        // Lắng nghe đồng bộ thời gian thực từ CSDL Firebase
         function setupCloudFirebaseListeners() {
             updateSyncStatus(true, "Firebase Realtime (kiemke-6602e)");
 
@@ -747,7 +760,6 @@
                 docs.sort((a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date));
                 historyRecords = docs;
                 saveStorage('app_history', historyRecords);
-                document.getElementById('cloud-sheets-count').innerText = historyRecords.length;
                 renderHistoryTable();
             }, (err) => { console.warn("Sheet sync warning:", err); });
         }
@@ -955,7 +967,6 @@
             }
         }
 
-        // BẮT BUỘC CHỌN MÁY CẮT CHO MỖI LẦN QUÉT (KHÔNG TỰ ĐỘNG GHI NHỚ)
         function displayRecognizedMaterial(mat, qrRawText) {
             if (!mat) return;
             currentScannedMaterial = mat;
@@ -975,7 +986,6 @@
             const qrEl = document.getElementById('res-qr-raw');
             if (qrEl) qrEl.innerText = qrRawText || mat.name || 'N/A';
 
-            // Reset menu Máy Cắt về vị trí RỖNG (Bắt buộc chọn lại cho từng vật tư)
             const machineSelect = document.getElementById('input-machine');
             if (machineSelect) {
                 machineSelect.innerHTML = `<option value="">-- Bắt buộc chọn Máy Cắt --</option>` + 
@@ -983,7 +993,6 @@
                 machineSelect.value = "";
             }
 
-            // Ẩn khung điền số lượng cho đến khi chọn máy cắt
             const fieldsContainer = document.getElementById('input-fields-container');
             if (fieldsContainer) fieldsContainer.classList.add('hidden');
 
@@ -1003,7 +1012,6 @@
             }
         }
 
-        // KHI CHỌN MÁY CẮT -> MỚI MỞ CÁC Ô NHẬP CÒN LẠI
         function onMachineSelectChange() {
             const machineSelect = document.getElementById('input-machine');
             const fieldsContainer = document.getElementById('input-fields-container');
@@ -1074,7 +1082,7 @@
                 sapCode: currentScannedMaterial.sapCode,
                 name: currentScannedMaterial.name,
                 category: currentScannedMaterial.category,
-                machine: selectedMachine, // Ghi nhận máy cắt riêng cho từng vật tư
+                machine: selectedMachine,
                 quantity: qty,
                 tubes: tubes,
                 note: note
@@ -1164,15 +1172,53 @@
             switchTab('history-tab');
         }
 
-        // BẢNG HIỂN THỊ NHẬT KÝ (THAO TÁC SỬA/XÓA CHO ADMIN)
+        // ================= XỬ LÝ NHẬT KÝ & LỌC PHIẾU THEO NGÀY =================
+
+        function setTodayFilter() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('history-from-date').value = today;
+            document.getElementById('history-to-date').value = today;
+            renderHistoryTable();
+            showToast("Đã chọn lọc ngày hôm nay!");
+        }
+
+        function clearDateFilter() {
+            document.getElementById('history-from-date').value = "";
+            document.getElementById('history-to-date').value = "";
+            renderHistoryTable();
+            showToast("Đã xóa bộ lọc ngày!");
+        }
+
+        function getFilteredHistoryRecords() {
+            if (!Array.isArray(historyRecords)) return [];
+
+            const fromDate = document.getElementById('history-from-date')?.value || "";
+            const toDate = document.getElementById('history-to-date')?.value || "";
+
+            return historyRecords.filter(r => {
+                if (fromDate && toDate) return r.date >= fromDate && r.date <= toDate;
+                if (fromDate) return r.date >= fromDate;
+                if (toDate) return r.date <= toDate;
+                return true;
+            });
+        }
+
         function renderHistoryTable() {
             const tbody = document.getElementById('history-tbody');
-            if (!Array.isArray(historyRecords) || historyRecords.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400 italic">Chưa có phiếu kiểm kê nào được lưu</td></tr>`;
+            const totalCountEl = document.getElementById('total-sheets-count');
+            const displayedCountEl = document.getElementById('displayed-sheets-count');
+
+            if (totalCountEl) totalCountEl.innerText = historyRecords.length;
+
+            const filtered = getFilteredHistoryRecords();
+            if (displayedCountEl) displayedCountEl.innerText = filtered.length;
+
+            if (!filtered || filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400 italic">Không tìm thấy phiếu kiểm kê nào theo điều kiện chọn</td></tr>`;
                 return;
             }
 
-            tbody.innerHTML = historyRecords.map(r => `
+            tbody.innerHTML = filtered.map(r => `
                 <tr class="hover:bg-slate-50 transition">
                     <td class="p-2 font-bold text-blue-600 font-mono">${r.id}</td>
                     <td class="p-2 font-medium">${r.date}</td>
@@ -1190,16 +1236,123 @@
             `).join('');
         }
 
-        // TÍNH NĂNG ADMIN XÓA PHIẾU
+        // Xuất File Excel Theo Khoảng Ngày Được Chọn
+        function exportToExcelByDateRange() {
+            const filtered = getFilteredHistoryRecords();
+
+            if (!filtered || filtered.length === 0) {
+                showToast("Không có dữ liệu phiếu nào để xuất Excel!", "error");
+                return;
+            }
+
+            const fromDate = document.getElementById('history-from-date')?.value;
+            const toDate = document.getElementById('history-to-date')?.value;
+
+            let excelData = [];
+            filtered.forEach(r => {
+                (r.items || []).forEach(it => {
+                    excelData.push({
+                        "MÁY CẮT": it.machine || r.machine,
+                        "DANH MỤC": it.category,
+                        "TÊN HÀNG": it.name,
+                        "SỐ LƯỢNG": it.quantity,
+                        "SỐ ỐNG": it.tubes,
+                        "MÃ SAP": it.sapCode,
+                        "NGÀY KIỂM KÊ": r.date,
+                        "NGƯỜI KIỂM KÊ": r.createdBy,
+                        "MÃ PHIẾU": r.id,
+                        "GHI CHÚ": it.note || ''
+                    });
+                });
+            });
+
+            if (excelData.length === 0) {
+                showToast("Các phiếu được chọn không có chi tiết vật tư!", "error");
+                return;
+            }
+
+            let fileName = `KiemKe_NVL`;
+            if (fromDate && toDate) {
+                fileName += (fromDate === toDate) ? `_${fromDate}` : `_Tu_${fromDate}_Den_${toDate}`;
+            } else if (fromDate) {
+                fileName += `_Tu_${fromDate}`;
+            } else if (toDate) {
+                fileName += `_Den_${toDate}`;
+            } else {
+                fileName += `_TatCa_${new Date().toISOString().split('T')[0]}`;
+            }
+
+            const worksheet = XLSX.utils.json_to_sheet(excelData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "KiemKe_NVL");
+            XLSX.writeFile(workbook, `${fileName}.xlsx`);
+            showToast(`Đã xuất Excel cho ${filtered.length} phiếu!`);
+        }
+
+        // Xóa Hàng Loạt Phiếu Kiểm Kê Theo Ngày (Yêu cầu xác thực Admin)
+        async function deleteSheetsByDateRange() {
+            if (!isAdminAuthenticated) {
+                showToast("Thao tác xóa yêu cầu xác thực quyền Admin!", "error");
+                openAdminAuthModal();
+                return;
+            }
+
+            const fromDate = document.getElementById('history-from-date')?.value;
+            const toDate = document.getElementById('history-to-date')?.value;
+
+            const filtered = getFilteredHistoryRecords();
+
+            if (!filtered || filtered.length === 0) {
+                showToast("Không tìm thấy phiếu nào theo điều kiện ngày để xóa!", "error");
+                return;
+            }
+
+            let dateRangeText = "";
+            if (fromDate && toDate) {
+                dateRangeText = (fromDate === toDate) ? `ngày ${fromDate}` : `từ ngày ${fromDate} đến ngày ${toDate}`;
+            } else if (fromDate) {
+                dateRangeText = `từ ngày ${fromDate} trở đi`;
+            } else if (toDate) {
+                dateRangeText = `đến ngày ${toDate}`;
+            } else {
+                dateRangeText = `TẤT CẢ TỪ TRƯỚC ĐẾN NAY`;
+            }
+
+            if (!confirm(`XÁC NHẬN:\n\nBạn có chắc chắn muốn XÓA VĨNH VIỄN ${filtered.length} phiếu kiểm kê (${dateRangeText})?\n\nDữ liệu sẽ bị xóa trên cả bộ nhớ và Cloud, không thể phục hồi!`)) {
+                return;
+            }
+
+            const idsToDelete = filtered.map(r => r.id);
+
+            // Xóa cục bộ
+            historyRecords = historyRecords.filter(r => !idsToDelete.includes(r.id));
+            saveStorage('app_history', historyRecords);
+
+            // Xóa trên Firebase Cloud
+            if (isFirebaseConnected && db) {
+                try {
+                    const deletePromises = idsToDelete.map(id => db.collection("inventory_sheets").doc(id).delete());
+                    await Promise.all(deletePromises);
+                } catch (e) {
+                    console.warn("Lỗi xóa phiếu trên Cloud:", e);
+                }
+            }
+
+            renderHistoryTable();
+            showToast(`Đã xóa thành công ${idsToDelete.length} phiếu!`);
+        }
+
+        // Xóa phiếu đơn lẻ (Yêu cầu Admin)
         async function deleteSheetRecord(sheetId) {
             if (!isAdminAuthenticated) {
+                showToast("Cần đăng nhập Admin để xóa phiếu!", "error");
                 openAdminAuthModal();
                 return;
             }
             const rec = historyRecords.find(r => r.id === sheetId);
             if (!rec) return;
 
-            if (confirm(`Admin xác nhận xóa phiếu [${sheetId}] do "${rec.createdBy}" tạo?`)) {
+            if (confirm(`Xác nhận xóa phiếu [${sheetId}] do "${rec.createdBy}" tạo?`)) {
                 historyRecords = historyRecords.filter(r => r.id !== sheetId);
                 saveStorage('app_history', historyRecords);
 
@@ -1214,9 +1367,10 @@
             }
         }
 
-        // TÍNH NĂNG ADMIN SỬA PHIẾU
+        // Admin mở modal sửa phiếu
         function openEditSheetModal(sheetId) {
             if (!isAdminAuthenticated) {
+                showToast("Cần đăng nhập Admin để sửa phiếu!", "error");
                 openAdminAuthModal();
                 return;
             }
@@ -1378,36 +1532,6 @@
             document.getElementById('detail-modal').classList.remove('flex');
         }
 
-        function exportToExcel() {
-            if (!Array.isArray(historyRecords) || historyRecords.length === 0) {
-                showToast("Chưa có dữ liệu lịch sử để xuất Excel!", "error");
-                return;
-            }
-
-            let excelData = [];
-            historyRecords.forEach(r => {
-                (r.items || []).forEach(it => {
-                    excelData.push({
-                        "MÁY CẮT": it.machine || r.machine,
-                        "DANH MỤC": it.category,
-                        "TÊN HÀNG": it.name,
-                        "SỐ LƯỢNG": it.quantity,
-                        "SỐ ỐNG": it.tubes,
-                        "MÃ SAP": it.sapCode,
-                        "NGÀY KIỂM KÊ": r.date,
-                        "NGƯỜI KIỂM KÊ": r.createdBy,
-                        "MÃ PHIẾU": r.id,
-                        "GHI CHÚ": it.note
-                    });
-                });
-            });
-
-            const worksheet = XLSX.utils.json_to_sheet(excelData);
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "KiemKe_NVL");
-            XLSX.writeFile(workbook, `KiemKe_NVL_${new Date().toISOString().split('T')[0]}.xlsx`);
-        }
-
         function openAdminAuthModal() {
             if (isAdminAuthenticated) {
                 switchTab('admin-tab');
@@ -1434,42 +1558,6 @@
             } else {
                 showToast("Mật khẩu Admin không đúng!", "error");
             }
-        }
-
-        async function cleanupOldSheets(days) {
-            if (!Array.isArray(historyRecords) || historyRecords.length === 0) {
-                showToast("Không có phiếu nào để dọn dẹp!", "error");
-                return;
-            }
-
-            if (!confirm(`Admin xác nhận xóa các phiếu kiểm kê cũ hơn ${days} ngày?`)) return;
-
-            const cutoffDate = new Date();
-            cutoffDate.setDate(cutoffDate.getDate() - days);
-
-            const initialCount = historyRecords.length;
-            historyRecords = historyRecords.filter(r => {
-                const sheetDate = new Date(r.createdAt || r.date);
-                return sheetDate >= cutoffDate;
-            });
-
-            const deletedCount = initialCount - historyRecords.length;
-            saveStorage('app_history', historyRecords);
-
-            if (isFirebaseConnected && db) {
-                try {
-                    const snapshot = await db.collection("inventory_sheets").get();
-                    snapshot.forEach(doc => {
-                        const data = doc.data();
-                        const sheetDate = new Date(data.createdAt || data.date);
-                        if (sheetDate < cutoffDate) {
-                            db.collection("inventory_sheets").doc(doc.id).delete();
-                        }
-                    });
-                } catch(e) {}
-            }
-
-            showToast(`Đã xóa ${deletedCount} phiếu cũ hơn ${days} ngày!`);
         }
 
         function resetDefaultMasterMaterials() {
@@ -1565,7 +1653,6 @@
             }
         }
 
-        // BẢNG HIỂN THỊ ADMIN
         function renderAdminMaterialsTable() {
             const tbody = document.getElementById('admin-materials-tbody');
             const countBadge = document.getElementById('admin-materials-count');
@@ -1637,7 +1724,6 @@
 
                 masterMaterials.unshift({ sapCode: sap, name, description: desc, category: cat, aliases: [name] });
                 
-                // Save locally & to cloud
                 saveStorage('app_materials', masterMaterials);
                 syncToFirebase("materials", masterMaterials);
 
@@ -1658,7 +1744,6 @@
                 masterMaterials = masterMaterials.filter(m => m.sapCode !== sapCode);
                 saveStorage('app_materials', masterMaterials);
                 
-                // Gửi mảng danh sách mới lên Firebase Cloud
                 syncToFirebase("materials", masterMaterials);
 
                 renderAdminMaterialsTable();
@@ -1667,7 +1752,7 @@
             }
         }
 
-        // CÀI ĐẶT TOAST HIỂN THỊ Ở TRÊN VÀ TỰ ẨN SAU ĐÚNG 1 GIÂY (1000ms)
+        // TOAST NOTIFICATION
         function showToast(msg, type = "success") {
             const toast = document.getElementById('toast');
             const toastMsg = document.getElementById('toast-msg');
@@ -1681,7 +1766,7 @@
             if (toastTimeout) clearTimeout(toastTimeout);
             toastTimeout = setTimeout(() => {
                 toast.className = `fixed top-4 left-1/2 -translate-x-1/2 ${bgClass} text-white px-4 py-2.5 rounded-xl shadow-2xl transition-all duration-300 transform -translate-y-20 opacity-0 pointer-events-none flex items-center space-x-2 z-50 text-xs font-medium max-w-[90vw]`;
-            }, 1000); // 1s notification duration
+            }, 1000);
         }
     </script>
 </body>
